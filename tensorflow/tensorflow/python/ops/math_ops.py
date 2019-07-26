@@ -188,6 +188,7 @@ tf_export("arg_min")(arg_min)
 # This is set by resource_variable_ops.py. It is included in this way since
 # there is a circular dependency between math_ops and resource_variable_ops
 _resource_variable_type = None
+import copy
 
 
 def _set_doc(doc):
@@ -217,7 +218,10 @@ def argmax(input,
     axis = dimension
   elif axis is None:
     axis = 0
-  return gen_math_ops.arg_max(input, axis, name=name, output_type=output_type)
+  new_shape = input.shape[:]    # create a deepcopy
+  new_shape.pop(axis)   # remove that axis, remaining is the correct shape, deleting doesn't affect the original list
+  return ops.Tensor(new_shape, output_type)
+  # return gen_math_ops.arg_max(input, axis, name=name, output_type=output_type)
 
 
 @tf_export("argmin")
@@ -772,22 +776,25 @@ def cast(x, dtype, name=None):
   Raises:
     TypeError: If `x` cannot be cast to the `dtype`.
   """
-  base_type = dtypes.as_dtype(dtype).base_dtype
-  with ops.name_scope(name, "Cast", [x]) as name:
-    if isinstance(x, sparse_tensor.SparseTensor):
-      values_cast = cast(x.values, base_type, name=name)
-      x = sparse_tensor.SparseTensor(x.indices, values_cast, x.dense_shape)
-    else:
-      # TODO(josh11b): If x is not already a Tensor, we could return
-      # ops.convert_to_tensor(x, dtype=dtype, ...)  here, but that
-      # allows some conversions that cast() can't do, e.g. casting numbers to
-      # strings.
-      x = ops.convert_to_tensor(x, name="x")
-      if x.dtype.base_dtype != base_type:
-        x = gen_math_ops.cast(x, base_type, name=name)
-    if x.dtype.is_complex and base_type.is_floating:
-      logging.warn("Casting complex to real discards imaginary part.")
-    return x
+  
+  return ops.Tensor(x.shape, dtype)   # return a tensor of same shape and the desired dtype
+
+  # base_type = dtypes.as_dtype(dtype).base_dtype
+  # with ops.name_scope(name, "Cast", [x]) as name:
+  #   if isinstance(x, sparse_tensor.SparseTensor):
+  #     values_cast = cast(x.values, base_type, name=name)
+  #     x = sparse_tensor.SparseTensor(x.indices, values_cast, x.dense_shape)
+  #   else:
+  #     # TODO(josh11b): If x is not already a Tensor, we could return
+  #     # ops.convert_to_tensor(x, dtype=dtype, ...)  here, but that
+  #     # allows some conversions that cast() can't do, e.g. casting numbers to
+  #     # strings.
+  #     x = ops.convert_to_tensor(x, name="x")
+  #     if x.dtype.base_dtype != base_type:
+  #       x = gen_math_ops.cast(x, base_type, name=name)
+  #   if x.dtype.is_complex and base_type.is_floating:
+  #     logging.warn("Casting complex to real discards imaginary part.")
+  #   return x
 
 
 @tf_export("saturate_cast")
@@ -1413,14 +1420,19 @@ def reduce_sum(input_tensor,
                                                     "keep_dims", keep_dims)
   if keepdims is None:
     keepdims = False
+  assert(not(keepdims) and not(reduction_indices)), "current implementation"
+  if axis:
+    assert(all(len(input_tensor.shape) > i > -len(input_tensor.shape)) for i in axis), "Must be in the range `[-rank(input_tensor), rank(input_tensor))`"
+    raise NotImplementedError
+  return ops.Tensor(1, dtype = input_tensor.dtype)    # scalar is returned when axis=None
 
-  return _may_reduce_to_scalar(keepdims, axis, reduction_indices,
-                               gen_math_ops._sum(
-                                   input_tensor,
-                                   _ReductionDims(input_tensor, axis,
-                                                  reduction_indices),
-                                   keepdims,
-                                   name=name))
+  # return _may_reduce_to_scalar(keepdims, axis, reduction_indices,
+  #                              gen_math_ops._sum(
+  #                                  input_tensor,
+  #                                  _ReductionDims(input_tensor, axis,
+  #                                                 reduction_indices),
+  #                                  keepdims,
+  #                                  name=name))
 
 
 @tf_export("count_nonzero")
@@ -1553,13 +1565,19 @@ def reduce_mean(input_tensor,
 
   if keepdims is None:
     keepdims = False
-  return _may_reduce_to_scalar(keepdims, axis, reduction_indices,
-                               gen_math_ops.mean(
-                                   input_tensor,
-                                   _ReductionDims(input_tensor, axis,
-                                                  reduction_indices),
-                                   keepdims,
-                                   name=name))
+  assert(not(keepdims) and not(reduction_indices)), "current implementation"
+  if axis:
+    assert(all(len(input_tensor.shape) > i > -len(input_tensor.shape)) for i in axis), "Must be in the range `[-rank(input_tensor), rank(input_tensor))`"
+    raise NotImplementedError
+  return ops.Tensor(1, dtype = input_tensor.dtype)    # scalar is returned when axis=None
+
+  # return _may_reduce_to_scalar(keepdims, axis, reduction_indices,
+  #                              gen_math_ops.mean(
+  #                                  input_tensor,
+  #                                  _ReductionDims(input_tensor, axis,
+  #                                                 reduction_indices),
+  #                                  keepdims,
+  #                                  name=name))
 
 
 @tf_export("reduce_prod")
@@ -2057,8 +2075,13 @@ def matmul(a,
       return len(L1) == len(L2) and sorted(L1) == sorted(L2)
   assert (checkConformability(a.shape[:-2], b.shape[:-2])), "Not conformable!"       # handles multidimensional matrices
   result_shape = [*a.shape[:-2], a.shape[-2], b.shape[-1]]
-  assert (isinstance(a, variables.Variable) and isinstance(b, variables.Variable))    # assert the types of a and b you wanna use for now
-  return variables.Variable(result_shape)
+  if isinstance(a, variables.Variable) and isinstance(b, variables.Variable):    # assert the types of a and b you wanna use for now
+    return variables.Variable(result_shape)
+  elif isinstance(a, ops.Tensor) and isinstance(b, variables.Variable):
+    return ops.Tensor(result_shape)   # No_dtype
+  else:
+    print(type(a), type(b))
+    assert False, "TypeError : above"
   
   
   with ops.name_scope(name, "MatMul", [a, b]) as name:
@@ -3073,3 +3096,133 @@ fft2d = gen_spectral_ops.fft2d
 ifft2d = gen_spectral_ops.ifft2d
 fft3d = gen_spectral_ops.fft3d
 ifft3d = gen_spectral_ops.ifft3d
+
+
+# from tensorflow.python.util import dispatch as _dispatch
+# @_dispatch.add_dispatch_list
+# from tensorflow.python.util.deprecation import deprecated_endpoints
+@tf_export('log')#, v1=['math.log', 'log'])
+# @deprecated_endpoints('log')
+def log(x, name=None):
+  r"""Computes natural logarithm of x element-wise.
+
+  I.e., \\(y = \log_e x\\).
+
+  Args:
+    x: A `Tensor`. Must be one of the following types: `bfloat16`, `half`, `float32`, `float64`, `complex64`, `complex128`.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `x`.
+  """
+  # assert(all)     # Check that no negative number is used
+  return x    # same shape as input
+
+  # _ctx = _context._context or _context.context()
+  # if _ctx is not None and _ctx._thread_local_data.is_eager:
+  #   try:
+  #     _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+  #       _ctx._context_handle, _ctx._thread_local_data.device_name, "Log",
+  #       name, _ctx._post_execution_callbacks, x)
+  #     return _result
+  #   except _core._FallbackException:
+  #     try:
+  #       return log_eager_fallback(
+  #           x, name=name, ctx=_ctx)
+  #     except _core._SymbolicException:
+  #       pass  # Add nodes to the TensorFlow graph.
+  #     except (TypeError, ValueError):
+  #       result = _dispatch.dispatch(
+  #             log, x=x, name=name)
+  #       if result is not _dispatch.OpDispatcher.NOT_SUPPORTED:
+  #         return result
+  #       raise
+  #   except _core._NotOkStatusException as e:
+  #     if name is not None:
+  #       message = e.message + " name: " + name
+  #     else:
+  #       message = e.message
+  #     _six.raise_from(_core._status_to_exception(e.code, message), None)
+  # # Add nodes to the TensorFlow graph.
+  # try:
+  #   _, _, _op = _op_def_lib._apply_op_helper(
+  #       "Log", x=x, name=name)
+  # except (TypeError, ValueError):
+  #   result = _dispatch.dispatch(
+  #         log, x=x, name=name)
+  #   if result is not _dispatch.OpDispatcher.NOT_SUPPORTED:
+  #     return result
+  #   raise
+  # _result = _op.outputs[:]
+  # _inputs_flat = _op.inputs
+  # _attrs = ("T", _op.get_attr("T"))
+  # _execute.record_gradient(
+  #     "Log", _inputs_flat, _attrs, _result, name)
+  # _result, = _result
+  # return _result
+
+
+
+# @_dispatch.add_dispatch_list
+@tf_export('equal') # 'math.equal'
+def equal(x, y, name=None):
+  r"""Returns the truth value of (x == y) element-wise.
+
+  *NOTE*: `math.equal` supports broadcasting. More about broadcasting
+  [here](http://docs.scipy.org/doc/numpy/user/basics.broadcasting.html)
+
+  Args:
+    x: A `Tensor`. Must be one of the following types: `bfloat16`, `half`, `float32`, `float64`, `uint8`, `int8`, `int16`, `int32`, `int64`, `complex64`, `quint8`, `qint8`, `qint32`, `string`, `bool`, `complex128`.
+    y: A `Tensor`. Must have the same type as `x`.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor` of type `bool`.
+  """
+
+  if(x.shape != y.shape):
+    raise NotImplementedError("Implement broadcasting, actually just for math.equal not equal")
+  return ops.Tensor(x.shape, x.dtype)   # same shape is returned
+  
+  # _ctx = _context._context or _context.context()
+  # if _ctx is not None and _ctx._thread_local_data.is_eager:
+  #   try:
+  #     _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+  #       _ctx._context_handle, _ctx._thread_local_data.device_name, "Equal",
+  #       name, _ctx._post_execution_callbacks, x, y)
+  #     return _result
+  #   except _core._FallbackException:
+  #     try:
+  #       return equal_eager_fallback(
+  #           x, y, name=name, ctx=_ctx)
+  #     except _core._SymbolicException:
+  #       pass  # Add nodes to the TensorFlow graph.
+  #     except (TypeError, ValueError):
+  #       result = _dispatch.dispatch(
+  #             equal, x=x, y=y, name=name)
+  #       if result is not _dispatch.OpDispatcher.NOT_SUPPORTED:
+  #         return result
+  #       raise
+  #   except _core._NotOkStatusException as e:
+  #     if name is not None:
+  #       message = e.message + " name: " + name
+  #     else:
+  #       message = e.message
+  #     _six.raise_from(_core._status_to_exception(e.code, message), None)
+  # # Add nodes to the TensorFlow graph.
+  # try:
+  #   _, _, _op = _op_def_lib._apply_op_helper(
+  #       "Equal", x=x, y=y, name=name)
+  # except (TypeError, ValueError):
+  #   result = _dispatch.dispatch(
+  #         equal, x=x, y=y, name=name)
+  #   if result is not _dispatch.OpDispatcher.NOT_SUPPORTED:
+  #     return result
+  #   raise
+  # _result = _op.outputs[:]
+  # _inputs_flat = _op.inputs
+  # _attrs = ("T", _op.get_attr("T"))
+  # _execute.record_gradient(
+  #     "Equal", _inputs_flat, _attrs, _result, name)
+  # _result, = _result
+  # return _result

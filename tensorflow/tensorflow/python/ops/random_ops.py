@@ -68,24 +68,26 @@ def random_normal(shape,
   Returns:
     A tensor of the specified shape filled with random normal values.
   """
+  # we can out asserts on shapes of mean and shape, don't need now
 
-  try:
-    assert(shape != None)
-  except AssertionError as e:
-      e.args += ('no shape given')
-      raise
-  return shape
+  return ops.Tensor(shape, dtype)   # output shape is shape
+  # try:
+  #   assert(shape != None)
+  # except AssertionError as e:
+  #     e.args += ('no shape given')
+  #     raise
+  # return shape
 
-  with ops.name_scope(name, "random_normal", [shape, mean, stddev]) as name:
-    shape_tensor = _ShapeTensor(shape)
-    mean_tensor = ops.convert_to_tensor(mean, dtype=dtype, name="mean")
-    stddev_tensor = ops.convert_to_tensor(stddev, dtype=dtype, name="stddev")
-    seed1, seed2 = random_seed.get_seed(seed)
-    rnd = gen_random_ops.random_standard_normal(
-        shape_tensor, dtype, seed=seed1, seed2=seed2)
-    mul = rnd * stddev_tensor
-    value = math_ops.add(mul, mean_tensor, name=name)
-    return value
+  # with ops.name_scope(name, "random_normal", [shape, mean, stddev]) as name:
+  #   shape_tensor = _ShapeTensor(shape)
+  #   mean_tensor = ops.convert_to_tensor(mean, dtype=dtype, name="mean")
+  #   stddev_tensor = ops.convert_to_tensor(stddev, dtype=dtype, name="stddev")
+  #   seed1, seed2 = random_seed.get_seed(seed)
+  #   rnd = gen_random_ops.random_standard_normal(
+  #       shape_tensor, dtype, seed=seed1, seed2=seed2)
+  #   mul = rnd * stddev_tensor
+  #   value = math_ops.add(mul, mean_tensor, name=name)
+  #   return value
 
 
 ops.NotDifferentiable("RandomStandardNormal")
@@ -173,16 +175,19 @@ def truncated_normal(shape,
   Returns:
     A tensor of the specified shape filled with random truncated normal values.
   """
-  with ops.name_scope(name, "truncated_normal", [shape, mean, stddev]) as name:
-    shape_tensor = _ShapeTensor(shape)
-    mean_tensor = ops.convert_to_tensor(mean, dtype=dtype, name="mean")
-    stddev_tensor = ops.convert_to_tensor(stddev, dtype=dtype, name="stddev")
-    seed1, seed2 = random_seed.get_seed(seed)
-    rnd = gen_random_ops.truncated_normal(
-        shape_tensor, dtype, seed=seed1, seed2=seed2)
-    mul = rnd * stddev_tensor
-    value = math_ops.add(mul, mean_tensor, name=name)
-    return value
+  return ops.Tensor(shape, dtype)
+  # Returns a tensor of the same shape as input
+
+  # with ops.name_scope(name, "truncated_normal", [shape, mean, stddev]) as name:
+  #   shape_tensor = _ShapeTensor(shape)
+  #   mean_tensor = ops.convert_to_tensor(mean, dtype=dtype, name="mean")
+  #   stddev_tensor = ops.convert_to_tensor(stddev, dtype=dtype, name="stddev")
+  #   seed1, seed2 = random_seed.get_seed(seed)
+  #   rnd = gen_random_ops.truncated_normal(
+  #       shape_tensor, dtype, seed=seed1, seed2=seed2)
+  #   mul = rnd * stddev_tensor
+  #   value = math_ops.add(mul, mean_tensor, name=name)
+  #   return value
 
 
 ops.NotDifferentiable("ParameterizedTruncatedNormal")

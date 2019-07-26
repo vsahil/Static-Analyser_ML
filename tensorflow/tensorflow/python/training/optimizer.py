@@ -407,6 +407,8 @@ class Optimizer(
     `grad_loss` are ignored when eager execution is enabled.
     @end_compatibility
     """
+
+    return 
     grads_and_vars = self.compute_gradients(
         loss, var_list=var_list, gate_gradients=gate_gradients,
         aggregation_method=aggregation_method,

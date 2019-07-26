@@ -891,13 +891,16 @@ class BaseSession(SessionInterface):
       ValueError: If `fetches` or `feed_dict` keys are invalid or refer to a
         `Tensor` that doesn't exist.
     """
-    options_ptr = tf_session.TF_NewBufferFromString(
-        compat.as_bytes(options.SerializeToString())) if options else None
+
+    options_ptr = tf_session.TF_NewBufferFromString(compat.as_bytes(options.SerializeToString())) if options else None
     run_metadata_ptr = tf_session.TF_NewBuffer() if run_metadata else None
 
+    assert(options_ptr == run_metadata_ptr == None), "Notimplemented"
+    print(fetches, type(fetches))
     try:
-      result = self._run(None, fetches, feed_dict, options_ptr,
-                         run_metadata_ptr)
+      print(fetches, feed_dict, "DEKHO")
+      result = self._run(None, fetches, feed_dict, options_ptr, run_metadata_ptr)
+      return result
       if run_metadata:
         proto_data = tf_session.TF_GetBuffer(run_metadata_ptr)
         run_metadata.ParseFromString(compat.as_bytes(proto_data))
@@ -1057,8 +1060,7 @@ class BaseSession(SessionInterface):
     if self._closed:
       raise RuntimeError('Attempted to use a closed Session.')
     if self.graph.version == 0:
-      raise RuntimeError('The Session graph is empty.  Add operations to the '
-                         'graph before calling run().')
+      raise RuntimeError('The Session graph is empty. Add operations to the graph before calling run().')
 
     # Create request.
     feed_dict_tensor = {}
@@ -1132,7 +1134,7 @@ class BaseSession(SessionInterface):
     # or if the call is a partial run that specifies feeds.
     if final_fetches or final_targets or (handle and feed_dict_tensor):
       results = self._do_run(handle, final_targets, final_fetches,
-                             feed_dict_tensor, options, run_metadata)
+                             feed_dict_tensor, options, run_metadata)   # this line
     else:
       results = []
     return fetch_handler.build_results(self, results)
@@ -1312,8 +1314,7 @@ class BaseSession(SessionInterface):
       return self._call_tf_sessionprun(handle, feed_dict, fetch_list)
 
     if handle is None:
-      return self._do_call(_run_fn, feeds, fetches, targets, options,
-                           run_metadata)
+      return self._do_call(_run_fn, feeds, fetches, targets, options, run_metadata)   # line 2
     else:
       return self._do_call(_prun_fn, handle, feeds, fetches)
 
@@ -1332,7 +1333,7 @@ class BaseSession(SessionInterface):
           node_def = op.node_def
         except KeyError:
           pass
-      raise type(e)(node_def, op, message)
+      raise type(e)(node_def, op, message)    # crashes here
 
   def _extend_graph(self):
     if self._created_with_new_api:

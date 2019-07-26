@@ -235,45 +235,45 @@ class Tensor(_TensorLike):
   ```
   """
 
-  # # List of Python operators that we allow to override.
-  # OVERLOADABLE_OPERATORS = {
-  #     # Binary.
-  #     "__add__",
-  #     "__radd__",
-  #     "__sub__",
-  #     "__rsub__",
-  #     "__mul__",
-  #     "__rmul__",
-  #     "__div__",
-  #     "__rdiv__",
-  #     "__truediv__",
-  #     "__rtruediv__",
-  #     "__floordiv__",
-  #     "__rfloordiv__",
-  #     "__mod__",
-  #     "__rmod__",
-  #     "__lt__",
-  #     "__le__",
-  #     "__gt__",
-  #     "__ge__",
-  #     "__and__",
-  #     "__rand__",
-  #     "__or__",
-  #     "__ror__",
-  #     "__xor__",
-  #     "__rxor__",
-  #     "__getitem__",
-  #     "__pow__",
-  #     "__rpow__",
-  #     # Unary.
-  #     "__invert__",
-  #     "__neg__",
-  #     "__abs__",
-  #     "__matmul__",
-  #     "__rmatmul__"
-  # }
+  # List of Python operators that we allow to override.
+  OVERLOADABLE_OPERATORS = {
+      # Binary.
+      "__add__",
+      "__radd__",
+      "__sub__",
+      "__rsub__",
+      "__mul__",
+      "__rmul__",
+      "__div__",
+      "__rdiv__",
+      "__truediv__",
+      "__rtruediv__",
+      "__floordiv__",
+      "__rfloordiv__",
+      "__mod__",
+      "__rmod__",
+      "__lt__",
+      "__le__",
+      "__gt__",
+      "__ge__",
+      "__and__",
+      "__rand__",
+      "__or__",
+      "__ror__",
+      "__xor__",
+      "__rxor__",
+      "__getitem__",
+      "__pow__",
+      "__rpow__",
+      # Unary.
+      "__invert__",
+      "__neg__",
+      "__abs__",
+      "__matmul__",
+      "__rmatmul__"
+  }
 
-  def __init__(self, shape, dtype, op=None):
+  def __init__(self, shape, dtype=None, op=None):
     """Creates a new `Tensor`.
 
     Args:
@@ -285,9 +285,9 @@ class Tensor(_TensorLike):
     Raises:
       TypeError: If the op is not an `Operation`.
     """
-    self.dtype = dtype
     self.shape = shape
-
+    self.dtype = dtype
+  
     # if not isinstance(op, Operation):
     #   raise TypeError("op needs to be an Operation: %s" % op)
     # self._op = op
@@ -315,6 +315,25 @@ class Tensor(_TensorLike):
 
     # self._id = uid()
 
+  
+  def __add__(self, other):
+      # print(self, type(self), type(other), self.shape, other.shape, "YEAH RADD INSIDE TENSOR CLASS")
+      # initially other was of type Variable, but here it is of type tensor and you will see only this, 
+      assert(len(other.shape) == 1), "only doing it for the bias in NN case"
+      assert(self.shape[-1] == other.shape[0]), "last dimension should be same"
+      return self     # this is output shape
+      # no change in shape, remains same
+      # return 
+      # assert False
+  
+  
+  def __mul__(self, other):
+      assert(self.shape == other.shape), "for multiplication shape must be same"
+      return self    # this is output shape
+  
+  def __neg__(self):
+    return self    # this is output shape  
+  
   # @property
   # def op(self):
   #   """The `Operation` that produces this tensor as an output."""

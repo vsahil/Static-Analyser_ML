@@ -19,7 +19,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numbers
-
+import math
 import numpy as np
 
 from tensorflow.python.eager import context
@@ -33,6 +33,7 @@ from tensorflow.python.ops import check_ops
 from tensorflow.python.ops import gen_nn_ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import random_ops
+
 
 # go/tf-wildcard-import
 # pylint: disable=wildcard-import
@@ -1732,10 +1733,15 @@ def softmax(logits, axis=None, name=None, dim=None):
     InvalidArgumentError: if `logits` is empty or `axis` is beyond the last
       dimension of `logits`.
   """
-  axis = deprecation.deprecated_argument_lookup("axis", axis, "dim", dim)
-  if axis is None:
-    axis = -1
-  return _softmax(logits, gen_nn_ops.softmax, axis, name)
+  assert(logits), "Checks for non-empty lists"
+  if axis:
+    assert(axis < len(logits.shape)), "axis is beyond the last dimension of logits"
+  return logits   # Returns: A `Tensor`. Has the same type and shape as `logits`.
+
+  # axis = deprecation.deprecated_argument_lookup("axis", axis, "dim", dim)
+  # if axis is None:
+  #   axis = -1
+  # return _softmax(logits, gen_nn_ops.softmax, axis, name)
 
 
 @tf_export("nn.log_softmax")
@@ -2131,15 +2137,27 @@ def max_pool(value, ksize, strides, padding, data_format="NHWC", name=None):
     A `Tensor` of format specified by `data_format`.
     The max pooled output tensor.
   """
-  with ops.name_scope(name, "MaxPool", [value]) as name:
-    value = ops.convert_to_tensor(value, name="input")
-    return gen_nn_ops.max_pool(
-        value,
-        ksize=ksize,
-        strides=strides,
-        padding=padding,
-        data_format=data_format,
-        name=name)
+
+  # assert(len(value.shape) == 4 and len(ksize.shape) == 1), "Value must be 4-D and ksize must be 1-D"    # trivial
+  # assert(all(isinstance(i, int) for i in strides)), "Only integer accepted as strides"    # trivial
+  assert(padding == "SAME")
+  assert(data_format == "NHWC")
+  assert(strides[0] == strides[3] == 1 and strides[1] == strides[2] == ksize[1] == ksize[2])
+  assert(ksize[0] == ksize[3] == 1)
+  a = math.ceil(value.shape[1]/strides[1])
+  b = math.ceil(value.shape[2]/strides[2])
+  output_shape = [value.shape[0], a, b, value.shape[3]]
+  return ops.Tensor(output_shape)    # No dtype
+
+  # with ops.name_scope(name, "MaxPool", [value]) as name:
+  #   value = ops.convert_to_tensor(value, name="input")
+  #   return gen_nn_ops.max_pool(
+  #       value,
+  #       ksize=ksize,
+  #       strides=strides,
+  #       padding=padding,
+  #       data_format=data_format,
+  #       name=name)
 
 
 @ops.RegisterStatistics("Conv2D", "flops")
@@ -2292,34 +2310,39 @@ def dropout(x, keep_prob, noise_shape=None, seed=None, name=None):  # pylint: di
     ValueError: If `keep_prob` is not in `(0, 1]` or if `x` is not a floating
       point tensor.
   """
-  with ops.name_scope(name, "dropout", [x]) as name:
-    x = ops.convert_to_tensor(x, name="x")
-    if not x.dtype.is_floating:
-      raise ValueError("x has to be a floating point tensor since it's going to"
-                       " be scaled. Got a %s tensor instead." % x.dtype)
-    if isinstance(keep_prob, numbers.Real) and not 0 < keep_prob <= 1:
-      raise ValueError("keep_prob must be a scalar tensor or a float in the "
-                       "range (0, 1], got %g" % keep_prob)
-    keep_prob = ops.convert_to_tensor(
-        keep_prob, dtype=x.dtype, name="keep_prob")
-    keep_prob.get_shape().assert_is_compatible_with(tensor_shape.scalar())
+  # assert(all(1>=i>=0) for i in keep_prob), "probabilities can be only between 0 and 1"
+  # assert(isinstance(i, float) for i in x), "x must be a floating point tensor"
+  assert(noise_shape == None), "If its shape is more complex, then this won't work"
+  return x      # no change in shape, just returning this
 
-    # Do nothing if we know keep_prob == 1
-    if tensor_util.constant_value(keep_prob) == 1:
-      return x
+  # with ops.name_scope(name, "dropout", [x]) as name:
+  #   x = ops.convert_to_tensor(x, name="x")
+  #   if not x.dtype.is_floating:
+  #     raise ValueError("x has to be a floating point tensor since it's going to"
+  #                      " be scaled. Got a %s tensor instead." % x.dtype)
+  #   if isinstance(keep_prob, numbers.Real) and not 0 < keep_prob <= 1:
+  #     raise ValueError("keep_prob must be a scalar tensor or a float in the "
+  #                      "range (0, 1], got %g" % keep_prob)
+  #   keep_prob = ops.convert_to_tensor(
+  #       keep_prob, dtype=x.dtype, name="keep_prob")
+  #   keep_prob.get_shape().assert_is_compatible_with(tensor_shape.scalar())
 
-    noise_shape = _get_noise_shape(x, noise_shape)
+  #   # Do nothing if we know keep_prob == 1
+  #   if tensor_util.constant_value(keep_prob) == 1:
+  #     return x
 
-    # uniform [keep_prob, 1.0 + keep_prob)
-    random_tensor = keep_prob
-    random_tensor += random_ops.random_uniform(
-        noise_shape, seed=seed, dtype=x.dtype)
-    # 0. if [keep_prob, 1.0) and 1. if [1.0, 1.0 + keep_prob)
-    binary_tensor = math_ops.floor(random_tensor)
-    ret = math_ops.div(x, keep_prob) * binary_tensor
-    if not context.executing_eagerly():
-      ret.set_shape(x.get_shape())
-    return ret
+  #   noise_shape = _get_noise_shape(x, noise_shape)
+
+  #   # uniform [keep_prob, 1.0 + keep_prob)
+  #   random_tensor = keep_prob
+  #   random_tensor += random_ops.random_uniform(
+  #       noise_shape, seed=seed, dtype=x.dtype)
+  #   # 0. if [keep_prob, 1.0) and 1. if [1.0, 1.0 + keep_prob)
+  #   binary_tensor = math_ops.floor(random_tensor)
+  #   ret = math_ops.div(x, keep_prob) * binary_tensor
+  #   if not context.executing_eagerly():
+  #     ret.set_shape(x.get_shape())
+  #   return ret
 
 
 @tf_export("nn.top_k")

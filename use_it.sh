@@ -1,4 +1,4 @@
-cd tensorflow
+cd ~/edit-tf/tensorflow
 bazel build --config=opt //tensorflow/tools/pip_package:build_pip_package
 ./bazel-bin/tensorflow/tools/pip_package/build_pip_package /tmp/tensorflow_pkg
 source ~/edit-tf/tf-1.8-edit/bin/activate

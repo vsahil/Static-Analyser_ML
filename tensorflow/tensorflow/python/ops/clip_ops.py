@@ -58,12 +58,15 @@ def clip_by_value(t, clip_value_min, clip_value_max,
     ValueError: if the clip tensors would trigger array broadcasting
       that would make the returned tensor larger than the input.
   """
-  with ops.name_scope(name, "clip_by_value",
-                      [t, clip_value_min, clip_value_max]) as name:
-    return gen_math_ops.clip_by_value(t,
-                                      clip_value_min,
-                                      clip_value_max,
-                                      name=name)
+  assert((isinstance(clip_value_min, float) and isinstance(clip_value_max, float)) or (clip_value_min.shape == clip_value_max.shape == t.shape)), "Clips are 0-D (scalar) `Tensor`, or a `Tensor` with the same shape as t"
+  return t  # returns a tensor of same shape as input
+
+  # with ops.name_scope(name, "clip_by_value",
+  #                     [t, clip_value_min, clip_value_max]) as name:
+  #   return gen_math_ops.clip_by_value(t,
+  #                                     clip_value_min,
+  #                                     clip_value_max,
+  #                                     name=name)
 
 @ops.RegisterGradient("ClipByValue")
 def _ClipByValueGrad(op, grad):

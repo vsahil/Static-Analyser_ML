@@ -322,6 +322,8 @@ def reshape(labeled_tensor, existing_axes, new_axes, name=None):
     AxisOrderError: If `existing_axes` are not a slice of axis names on the
       input.
   """
+  # print("I AM HERE")
+  # assert False
   with ops.name_scope(name, 'lt_reshape', [labeled_tensor]) as scope:
     labeled_tensor = core.convert_to_labeled_tensor(labeled_tensor)
 

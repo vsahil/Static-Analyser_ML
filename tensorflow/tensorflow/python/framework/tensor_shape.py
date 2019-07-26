@@ -21,6 +21,8 @@ from tensorflow.core.framework import tensor_shape_pb2
 from tensorflow.python.framework import dtypes
 from tensorflow.python.util import compat
 from tensorflow.python.util.tf_export import tf_export
+from tensorflow.python.framework import ops
+import numpy as np
 
 
 @tf_export("Dimension")
@@ -935,6 +937,140 @@ class TensorShape(object):
     return self._dims != other.dims
 
 
+def reshape(tensor, shape, name=None):
+      r"""Reshapes a tensor.
+
+    Given `tensor`, this operation returns a tensor that has the same values
+    as `tensor` with shape `shape`.
+
+    If one component of `shape` is the special value -1, the size of that dimension
+    is computed so that the total size remains constant.  In particular, a `shape`
+    of `[-1]` flattens into 1-D.  At most one component of `shape` can be -1.
+
+    If `shape` is 1-D or higher, then the operation returns a tensor with shape
+    `shape` filled with the values of `tensor`. In this case, the number of elements
+    implied by `shape` must be the same as the number of elements in `tensor`.
+
+    For example:
+
+    ```
+    # tensor 't' is [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    # tensor 't' has shape [9]
+    reshape(t, [3, 3]) ==> [[1, 2, 3],
+                            [4, 5, 6],
+                            [7, 8, 9]]
+
+    # tensor 't' is [[[1, 1], [2, 2]],
+    #                [[3, 3], [4, 4]]]
+    # tensor 't' has shape [2, 2, 2]
+    reshape(t, [2, 4]) ==> [[1, 1, 2, 2],
+                            [3, 3, 4, 4]]
+
+    # tensor 't' is [[[1, 1, 1],
+    #                 [2, 2, 2]],
+    #                [[3, 3, 3],
+    #                 [4, 4, 4]],
+    #                [[5, 5, 5],
+    #                 [6, 6, 6]]]
+    # tensor 't' has shape [3, 2, 3]
+    # pass '[-1]' to flatten 't'
+    reshape(t, [-1]) ==> [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6]
+
+    # -1 can also be used to infer the shape
+
+    # -1 is inferred to be 9:
+    reshape(t, [2, -1]) ==> [[1, 1, 1, 2, 2, 2, 3, 3, 3],
+                            [4, 4, 4, 5, 5, 5, 6, 6, 6]]
+    # -1 is inferred to be 2:
+    reshape(t, [-1, 9]) ==> [[1, 1, 1, 2, 2, 2, 3, 3, 3],
+                            [4, 4, 4, 5, 5, 5, 6, 6, 6]]
+    # -1 is inferred to be 3:
+    reshape(t, [ 2, -1, 3]) ==> [[[1, 1, 1],
+                                  [2, 2, 2],
+                                  [3, 3, 3]],
+                                [[4, 4, 4],
+                                  [5, 5, 5],
+                                  [6, 6, 6]]]
+
+    # tensor 't' is [7]
+    # shape `[]` reshapes to a scalar
+    reshape(t, []) ==> 7
+    ```
+
+    Args:
+      tensor: A `Tensor`.
+      shape: A `Tensor`. Must be one of the following types: `int32`, `int64`.
+        Defines the shape of the output tensor.
+      name: A name for the operation (optional).
+
+    Returns:
+      A `Tensor`. Has the same type as `tensor`.
+    """
+
+      # print("helli its me reshape")
+      # assert False
+      # _ctx = _context._context
+      # if _ctx is None or not _ctx._eager_context.is_eager:
+      #   _, _, _op = _op_def_lib._apply_op_helper(
+      #       "Reshape", tensor=tensor, shape=shape, name=name)
+      #   _result = _op.outputs[:]
+      #   _inputs_flat = _op.inputs
+      #   _attrs = ("T", _op.get_attr("T"), "Tshape", _op.get_attr("Tshape"))
+      #   _execute.record_gradient(
+      #     "Reshape", _inputs_flat, _attrs, _result, name)
+      #   _result, = _result
+      #   return _result
+
+      # rules
+      # Evenly divisible means just divisible -- confusion solved. All good
+      # 1. If none(?) in tensor.shape and -1 in shape, then no crash, final_shape = shape, put none in place of -1 
+      # 2. If none in tensor.shape and -1 not in shape, shape % tensor.shape == 0 (see it is reverse of rule 3)
+      # 3. If tensor.shape has no none and shape has -1; tensor.shape % shape == 0 , and in place of -1 put (tensor.shape // prod(shape - non-negative elements))    (what if one element is -2 : no negative elements allowed except -1 and only once)
+      # 4. If tensor.shape has no none and shape has no -1, then prod(tensor.shape) == prod(shape)
+
+      # else:
+      assert(all(isinstance(i, int) for i in shape)), "the shape elements must be all int"
+      assert(all(i > -1) for i in shape) , "only elements greater and or equal to -1 is allowed"
+      assert(isinstance(shape, list) and isinstance(tensor, ops.Tensor))
+      if -1 in shape:
+         assert(shape.count(-1) == 1), "-1 can be maximally once in the shape"
+      # print(tensor.shape)
+      # Rule 1
+      if None in tensor.shape and -1 in shape:
+        new_shape =  [None if x==-1 else x for x in shape]
+      # Rule 2
+      elif None in tensor.shape and not -1 in shape:
+        div = np.prod([i for i in tensor.shape if i])
+        assert(np.prod(shape) % div == 0), "{} must be divisible by {}".format(np.prod(shape), div)
+        new_shape = shape
+      # Rule 3
+      elif -1 in shape:
+        assert(np.prod(tensor.shape) % (-np.prod(shape)) == 0), "{} must be divisible by {}".format(np.prod(tensor.shape), -np.prod(shape))
+        th = -(np.prod(tensor.shape) // np.prod(shape))
+        new_shape = [th if x==-1 else x for x in shape]
+      # Rule 4 
+      else:
+        assert(np.prod(tensor.shape) == np.prod(shape))
+        new_shape = shape
+
+      return ops.Tensor(new_shape)    # No dtype
+      
+      # try:
+      #   _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+      #     _ctx._context_handle, _ctx._eager_context.device_name, "Reshape",
+      #     name, _ctx._post_execution_callbacks, tensor, shape)
+      #   return _result
+      # except _core._FallbackException:
+      #   return reshape_eager_fallback(
+      #       tensor, shape, name=name, ctx=_ctx)
+      # except _core._NotOkStatusException as e:
+      #   if name is not None:
+      #     message = e.message + " name: " + name
+      #   else:
+      #     message = e.message
+      #   _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
 def as_shape(shape):
   """Converts the given object to a TensorShape."""
   if isinstance(shape, TensorShape):
@@ -986,3 +1122,179 @@ def matrix(rows, cols):
     A TensorShape representing a matrix of the given size.
   """
   return TensorShape([rows, cols])
+
+
+@tf_export('nn.conv2d')
+def conv2d(input, filter, strides, padding, use_cudnn_on_gpu=True, data_format="NHWC", dilations=[1, 1, 1, 1], name=None):
+  r"""Computes a 2-D convolution given 4-D `input` and `filter` tensors.
+
+  Given an input tensor of shape `[batch, in_height, in_width, in_channels]`
+  and a filter / kernel tensor of shape
+  `[filter_height, filter_width, in_channels, out_channels]`, this op
+  performs the following:
+
+  1. Flattens the filter to a 2-D matrix with shape
+     `[filter_height * filter_width * in_channels, output_channels]`.
+  2. Extracts image patches from the input tensor to form a *virtual*
+     tensor of shape `[batch, out_height, out_width,
+     filter_height * filter_width * in_channels]`.
+  3. For each patch, right-multiplies the filter matrix and the image patch
+     vector.
+
+  In detail, with the default NHWC format,
+
+      output[b, i, j, k] =
+          sum_{di, dj, q} input[b, strides[1] * i + di, strides[2] * j + dj, q] *
+                          filter[di, dj, q, k]
+
+  Must have `strides[0] = strides[3] = 1`.  For the most common case of the same
+  horizontal and vertices strides, `strides = [1, stride, stride, 1]`.
+
+  Args:
+    input: A `Tensor`. Must be one of the following types: `half`, `bfloat16`, `float32`, `float64`.
+      A 4-D tensor. The dimension order is interpreted according to the value
+      of `data_format`, see below for details.
+    filter: A `Tensor`. Must have the same type as `input`.
+      A 4-D tensor of shape
+      `[filter_height, filter_width, in_channels, out_channels]`
+    strides: A list of `ints`.
+      1-D tensor of length 4.  The stride of the sliding window for each
+      dimension of `input`. The dimension order is determined by the value of
+      `data_format`, see below for details.
+    padding: A `string` from: `"SAME", "VALID"`.
+      The type of padding algorithm to use.
+    use_cudnn_on_gpu: An optional `bool`. Defaults to `True`.
+    data_format: An optional `string` from: `"NHWC", "NCHW"`. Defaults to `"NHWC"`.
+      Specify the data format of the input and output data. With the
+      default format "NHWC", the data is stored in the order of:
+          [batch, height, width, channels].
+      Alternatively, the format could be "NCHW", the data storage order of:
+          [batch, channels, height, width].
+    dilations: An optional list of `ints`. Defaults to `[1, 1, 1, 1]`.
+      1-D tensor of length 4.  The dilation factor for each dimension of
+      `input`. If set to k > 1, there will be k-1 skipped cells between each
+      filter element on that dimension. The dimension order is determined by the
+      value of `data_format`, see above for details. Dilations in the batch and
+      depth dimensions must be 1.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `input`.
+  """
+  # assert(len(input.shape) == 4 and len(filter.shape) == 4), "Input and filter must be 4-D"    # trivial
+  # assert(all(isinstance(i, int) for i in strides)), "Only integer accepted as strides"    # trivial
+  # put assert on padding
+  # output[b, i, j, k] = sum_{di, dj, q} input[b, strides[1] * i + di, strides[2] * j + dj, q] * filter[di, dj, q, k]
+  # assert(padding == "VALID" or padding )
+  assert(input.shape[1] == input.shape[2]), "inheight and inwidth must be equal"
+  assert(filter.shape[0] == filter.shape[1]), "filter height and filter weight must be equal"
+  assert(all(i == 1 for i in strides)), "currently implementation only works for strides = 1"
+  assert(dilations == [1,1,1,1] and data_format == "NHWC"), "this basically means no difference in shape from convoulution without dilation"
+  if padding == "VALID":
+    assert(input.shape[1] >= filter.shape[0]), "Input shape[1] must be larger than or equal to filter.shape[0]"
+    assert(input.shape[2] >= filter.shape[1]), "Input shape[1] must be larger than or equal to filter.shape[0]"
+    output_shape = [input.shape[0], (input.shape[1]-filter.shape[0] + 1), (input.shape[2]-filter.shape[1] + 1), filter.shape[3]]
+  else:
+    output_shape = [input.shape[0], input.shape[1], input.shape[2], filter.shape[3]]
+  return ops.Tensor(output_shape)    # No dtype
+
+  # _ctx = _context._context
+  # if _ctx is None or not _ctx._eager_context.is_eager:
+  #   if not isinstance(strides, (list, tuple)):
+  #     raise TypeError(
+  #         "Expected list for 'strides' argument to "
+  #         "'conv2d' Op, not %r." % strides)
+  #   strides = [_execute.make_int(_i, "strides") for _i in strides]
+  #   padding = _execute.make_str(padding, "padding")
+  #   if use_cudnn_on_gpu is None:
+  #     use_cudnn_on_gpu = True
+  #   use_cudnn_on_gpu = _execute.make_bool(use_cudnn_on_gpu, "use_cudnn_on_gpu")
+  #   if data_format is None:
+  #     data_format = "NHWC"
+  #   data_format = _execute.make_str(data_format, "data_format")
+  #   if dilations is None:
+  #     dilations = [1, 1, 1, 1]
+  #   if not isinstance(dilations, (list, tuple)):
+  #     raise TypeError(
+  #         "Expected list for 'dilations' argument to "
+  #         "'conv2d' Op, not %r." % dilations)
+  #   dilations = [_execute.make_int(_i, "dilations") for _i in dilations]
+  #   _, _, _op = _op_def_lib._apply_op_helper(
+  #       "Conv2D", input=input, filter=filter, strides=strides,
+  #       padding=padding, use_cudnn_on_gpu=use_cudnn_on_gpu,
+  #       data_format=data_format, dilations=dilations, name=name)
+  #   _result = _op.outputs[:]
+  #   _inputs_flat = _op.inputs
+  #   _attrs = ("T", _op.get_attr("T"), "strides", _op.get_attr("strides"),
+  #             "use_cudnn_on_gpu", _op.get_attr("use_cudnn_on_gpu"), "padding",
+  #             _op.get_attr("padding"), "data_format",
+  #             _op.get_attr("data_format"), "dilations",
+  #             _op.get_attr("dilations"))
+  #   _execute.record_gradient(
+  #     "Conv2D", _inputs_flat, _attrs, _result, name)
+  #   _result, = _result
+  #   return _result
+
+  # else:
+  #   try:
+  #     _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+  #       _ctx._context_handle, _ctx._eager_context.device_name, "Conv2D", name,
+  #       _ctx._post_execution_callbacks, input, filter, "strides", strides,
+  #       "use_cudnn_on_gpu", use_cudnn_on_gpu, "padding", padding,
+  #       "data_format", data_format, "dilations", dilations)
+  #     return _result
+  #   except _core._FallbackException:
+  #     return conv2d_eager_fallback(
+  #         input, filter, strides=strides, use_cudnn_on_gpu=use_cudnn_on_gpu,
+  #         padding=padding, data_format=data_format, dilations=dilations,
+  #         name=name, ctx=_ctx)
+  #   except _core._NotOkStatusException as e:
+  #     if name is not None:
+  #       message = e.message + " name: " + name
+  #     else:
+  #       message = e.message
+  #     _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+
+@tf_export('nn.relu')
+def relu(features, name=None):
+  r"""Computes rectified linear: `max(features, 0)`.
+
+  Args:
+    features: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `int64`, `bfloat16`, `uint16`, `half`, `uint32`, `uint64`.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `features`.
+  """
+  # I am not checking the type of the input
+  return features   # output shape is same as input shape, just returning object
+
+  # _ctx = _context._context
+  # if _ctx is None or not _ctx._eager_context.is_eager:
+  #   _, _, _op = _op_def_lib._apply_op_helper(
+  #       "Relu", features=features, name=name)
+  #   _result = _op.outputs[:]
+  #   _inputs_flat = _op.inputs
+  #   _attrs = ("T", _op.get_attr("T"))
+  #   _execute.record_gradient(
+  #     "Relu", _inputs_flat, _attrs, _result, name)
+  #   _result, = _result
+  #   return _result
+
+  # else:
+  #   try:
+  #     _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+  #       _ctx._context_handle, _ctx._eager_context.device_name, "Relu", name,
+  #       _ctx._post_execution_callbacks, features)
+  #     return _result
+  #   except _core._FallbackException:
+  #     return relu_eager_fallback(
+  #         features, name=name, ctx=_ctx)
+  #   except _core._NotOkStatusException as e:
+  #     if name is not None:
+  #       message = e.message + " name: " + name
+  #     else:
+  #       message = e.message
+  #     _six.raise_from(_core._status_to_exception(e.code, message), None)

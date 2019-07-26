@@ -130,6 +130,8 @@ class tf_export(object):  # pylint: disable=invalid-name
       name: (string) Current constant name.
     """
     module = sys.modules[module_name]
+    # print(module, module_name, "HELLOP")
+    # assert False
     if not hasattr(module, '_tf_api_constants'):
       module._tf_api_constants = []  # pylint: disable=protected-access
     # pylint: disable=protected-access

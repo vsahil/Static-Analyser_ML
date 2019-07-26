@@ -214,19 +214,25 @@ class Variable(checkpointable.CheckpointableBase):
     for details on how variables work in eager execution.
     @end_compatibility
     """
-    print(expected_shape, initial_value, type(initial_value))
+    # print(expected_shape, initial_value, type(initial_value))
+    assert(isinstance(initial_value, list) or isinstance(initial_value, ops.Tensor))   # so that only lists as passed and not something like tf.Variable(5)
     if expected_shape == None:
-        ret = initial_value
+        if isinstance(initial_value, list):
+          ret = initial_value
+        elif isinstance(initial_value, ops.Tensor):
+          ret = initial_value.shape     # so that a list is returned in all cases
     else:
       ret = expected_shape
 
     self.shape = ret    # no other attribute, just this
 
+    self._initial_value = ops.Tensor(self.shape, dtype)
     # self._initial_value = ops.convert_to_tensor(initial_value, name="initial_value", dtype=dtype)
+    # print(type(self._initial_value), "HERE")
     # shape = (self._initial_value.get_shape() if validate_shape else tensor_shape.unknown_shape())
     # self._variable = state_ops.variable_op_v2(shape, self._initial_value.dtype.base_dtype, name=name)
     # with ops.colocate_with(self._variable.op):
-    #   self._snapshot = array_ops.identity(self._variable, name="read")
+    # self._snapshot = array_ops.identity(self._variable, name="read")
       
     # self.set_shape(TensorShape(ret)) # = self.shape._replace(TensorShape(ret))
     # self.shape = ret
@@ -502,16 +508,7 @@ class Variable(checkpointable.CheckpointableBase):
   #   """Conversion function for Graph.as_graph_element()."""
   #   return self._variable
 
-  # def _AsTensor(self):  # pylint: disable=invalid-name
-  #   """Converts this variable to a Tensor.
-
-  #   See @{tf.Variable.value}.
-
-  #   Returns:
-  #     A `Tensor` containing the value of the variable.
-  #   """
-  #   return self._snapshot
-
+  
   # def __iter__(self):
   #   """Dummy method to prevent iteration. Do not call.
 
@@ -833,37 +830,49 @@ class Variable(checkpointable.CheckpointableBase):
   #   else:
   #     return v.value()
 
-  # @staticmethod
-  # def _OverloadAllOperators():  # pylint: disable=invalid-name
-  #   """Register overloads for all operators."""
-  #   for operator in ops.Tensor.OVERLOADABLE_OPERATORS:
-  #     Variable._OverloadOperator(operator)
-  #   # For slicing, bind getitem differently than a tensor (use SliceHelperVar
-  #   # instead)
-  #   # pylint: disable=protected-access
-  #   setattr(Variable, "__getitem__", array_ops._SliceHelperVar)
+  def _AsTensor(self):  # pylint: disable=invalid-name
+    """Converts this variable to a Tensor.
 
-  # @staticmethod
-  # def _OverloadOperator(operator):  # pylint: disable=invalid-name
-  #   """Defer an operator overload to `ops.Tensor`.
+    See @{tf.Variable.value}.
 
-  #   We pull the operator out of ops.Tensor dynamically to avoid ordering issues.
+    Returns:
+      A `Tensor` containing the value of the variable.
+    """
+    return self._initial_value
 
-  #   Args:
-  #     operator: string. The operator name.
-  #   """
 
-  #   def _run_op(a, *args):
-  #     # pylint: disable=protected-access
-  #     return getattr(ops.Tensor, operator)(a._AsTensor(), *args)
-  #   # Propagate __doc__ to wrapper
-  #   try:
-  #     _run_op.__doc__ = getattr(ops.Tensor, operator).__doc__
-  #   except AttributeError:
-  #     pass
-  #   # print(Variable, operator, _run_op, "DEkho")
-  #   # input()
-  #   setattr(Variable, operator, _run_op)
+  @staticmethod
+  def _OverloadAllOperators():  # pylint: disable=invalid-name
+    """Register overloads for all operators."""
+    for operator in ops.Tensor.OVERLOADABLE_OPERATORS:
+      Variable._OverloadOperator(operator)
+    # For slicing, bind getitem differently than a tensor (use SliceHelperVar
+    # instead)
+    # pylint: disable=protected-access
+    setattr(Variable, "__getitem__", array_ops._SliceHelperVar)
+
+  @staticmethod
+  def _OverloadOperator(operator):  # pylint: disable=invalid-name
+    """Defer an operator overload to `ops.Tensor`.
+
+    We pull the operator out of ops.Tensor dynamically to avoid ordering issues.
+
+    Args:
+      operator: string. The operator name.
+    """
+
+    def _run_op(a, *args):
+      # pylint: disable=protected-access
+      return getattr(ops.Tensor, operator)(a._AsTensor(), *args)
+    # Propagate __doc__ to wrapper
+    try:
+      _run_op.__doc__ = getattr(ops.Tensor, operator).__doc__
+    except AttributeError:
+      # print(operator, "problem")
+      pass
+    # print(Variable, operator, _run_op, "DEkho")
+    # input()
+    setattr(Variable, operator, _run_op)
 
   # def _gather_saveables_for_checkpoint(self):
   #   """For implementing `Checkpointable`. This object is saveable on its own."""
@@ -1772,7 +1781,7 @@ def report_uninitialized_variables(var_list=None,
         return array_ops.boolean_mask(variable_names_tensor, variables_mask)
 
 # pylint: disable=protected-access
-# Variable._OverloadAllOperators()
+Variable._OverloadAllOperators()
 # print("YESS")
 # ops.register_tensor_conversion_function(
 #     PartitionedVariable, PartitionedVariable._TensorConversionFunction)

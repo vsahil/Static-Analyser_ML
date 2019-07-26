@@ -246,7 +246,7 @@ def _tensor_conversion(var, dtype=None, name=None, as_ref=False):
 
 
 ops.register_tensor_conversion_function(DistributedVariable, _tensor_conversion)
-ops.register_dense_tensor_like_type(DistributedVariable)
+# ops.register_dense_tensor_like_type(DistributedVariable)
 
 
 class _MirroredSaveable(saver.BaseSaverBuilder.ResourceVariableSaveable):

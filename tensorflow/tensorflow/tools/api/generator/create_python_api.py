@@ -98,10 +98,16 @@ class _ModuleInitCodeBuilder(object):
     # Check if we are trying to expose two different symbols with same name.
     full_api_name = dest_name
     if dest_module_name:
+      # if this:
+          # print(full_api_name, dest_module_name, source_module_name, "CORRECTbef", type(dest_module_name))
       full_api_name = dest_module_name + '.' + full_api_name
+    # if this:
+    #   print(full_api_name, dest_module_name, source_module_name, "CORRECT")
+      
     if (full_api_name in self._dest_import_to_id and
         symbol_id != self._dest_import_to_id[full_api_name] and
         symbol_id != -1):
+      print(dest_module_name, "yippe", source_module_name, source_name, "chk", dest_name, symbol_id, "YUP", self._dest_import_to_id[full_api_name])
       raise SymbolExposedTwiceError(
           'Trying to export multiple symbols with same name: %s.' %
           full_api_name)
@@ -158,8 +164,11 @@ def get_api_init_text():
 
   # Traverse over everything imported above. Specifically,
   # we want to traverse over TensorFlow Python modules.
+  # print(type(sys.modules.values()), type(sys.modules))
+  # assert False
   for module in sys.modules.values():
     # Only look at tensorflow modules.
+    # print(module, "HRE I AM")
     if (not module or not hasattr(module, "__name__") or
         'tensorflow.' not in module.__name__):
       continue
@@ -169,7 +178,6 @@ def get_api_init_text():
 
     for module_contents_name in dir(module):
       attr = getattr(module, module_contents_name)
-
       # If attr is _tf_api_constants attribute, then add the constants.
       if module_contents_name == _API_CONSTANTS_ATTR:
         for exports, value in attr:
@@ -187,9 +195,32 @@ def get_api_init_text():
         for export in attr._tf_api_names:  # pylint: disable=protected-access
           names = export.split('.')
           dest_module = '.'.join(names[:-1])
+          if "reshape" in str(attr) or "reshape" in str(module_contents_name):        # If it is reshape here, don't add it in the file, just continue, not sure how to overwrite, but this is fine
+              continue
+          if "conv2d" in str(attr) or "conv2d" in str(module_contents_name):        # If it is reshape here, don't add it in the file, just continue, not sure how to overwrite, but this is fine
+              if str(attr._tf_api_names[0]) == "nn.conv2d" and (not "tensor_shape" in module.__name__):   # there are several conv2d modules, only when this is
+                # print(attr, module_contents_name, attr._tf_api_names, names, dest_module, id(attr), module.__name__, "HELLLO")
+                # nw = dest_module + '.' + names[-1]
+                # print(len(module_code_builder._dest_import_to_id), nw in module_code_builder._dest_import_to_id, "dekhio", len(module_code_builder._dest_import_to_id), nw in module_code_builder._dest_import_to_id)
+                # print(module_code_builder._dest_import_to_id[nw])
+                # print(id(attr) != module_code_builder._dest_import_to_id[nw] and id(attr) != -1 and nw in module_code_builder._dest_import_to_id, "SEE THIS")
+                continue
+          if "nn.relu" in str(attr._tf_api_names) and (not "tensor_shape" in module.__name__):
+            continue
+
+          if "log" in str(module_contents_name) and names[-1] == "log" and len(names) == 1 and "gen_math_ops" in module.__name__:
+            continue
+
+          if "equal" in str(module_contents_name) and names[-1] == "equal" and "gen_math_ops" in module.__name__:
+            # print(attr, module_contents_name, attr._tf_api_names, names, dest_module, id(attr), module.__name__, "HELLLO")
+            # nw = dest_module + '.' + names[-1]
+            # print(len(module_code_builder._dest_import_to_id), nw in module_code_builder._dest_import_to_id, "dekhio", len(module_code_builder._dest_import_to_id), nw in module_code_builder._dest_import_to_id)
+            continue
+          
           module_code_builder.add_import(
               id(attr), dest_module, module.__name__, module_contents_name,
               names[-1])
+          
 
   # Import all required modules in their parent modules.
   # For e.g. if we import 'foo.bar.Value'. Then, we also
@@ -225,6 +256,7 @@ def create_api_files(output_files):
     ValueError: if an output file is not under api/ directory,
       or output_files list is missing a required file.
   """
+  # import ipdb; ipdb.set_trace()
   module_name_to_file_path = {}
   for output_file in output_files:
     # Convert path separators to '/' for easier parsing below.
@@ -240,7 +272,8 @@ def create_api_files(output_files):
     # Convert / to .
     module_name = module_dir.replace('/', '.').strip('.')
     module_name_to_file_path[module_name] = os.path.normpath(output_file)
-
+    # print(normalized_output_file, _API_DIR, module_name_to_file_path)
+  
   # Create file for each expected output in genrule.
   for module, file_path in module_name_to_file_path.items():
     if not os.path.isdir(os.path.dirname(file_path)):
@@ -248,7 +281,8 @@ def create_api_files(output_files):
     open(file_path, 'a').close()
 
   module_text_map = get_api_init_text()
-
+  # print(module_text_map)
+  # assert False
   # Add imports to output files.
   missing_output_files = []
   for module, text in module_text_map.items():
