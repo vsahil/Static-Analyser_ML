@@ -224,10 +224,11 @@ class Variable(checkpointable.CheckpointableBase):
           ret = initial_value.shape     # so that a list is returned in all cases
     else:
       ret = expected_shape
-
+    # print(initial_value, initial_value.shape)
     self.shape = ret    # no other attribute, just this
 
-    self._initial_value = ops.Tensor(self.shape, dtype)
+    self._initial_value = ops.Tensor(self.shape, dtypes.as_dtype(dtype).base_dtype if dtype else dtype)   # only convert if not None
+    # print(initial_value, initial_value.shape, self._initial_value, "dekhona")
     # self._initial_value = ops.convert_to_tensor(initial_value, name="initial_value", dtype=dtype)
     # print(type(self._initial_value), "HERE")
     # shape = (self._initial_value.get_shape() if validate_shape else tensor_shape.unknown_shape())
@@ -288,7 +289,7 @@ class Variable(checkpointable.CheckpointableBase):
   #     return ret
   
   def __repr__(self):
-    return "tf.Variable shape, type = %s" %(self._initial_value)
+    return "tf.Variable shape = %s, type = %s" %(self._initial_value.shape, self._initial_value.dtype)
     # return "<tf.Variable shape=%s" % (
         # self.shape)
 

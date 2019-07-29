@@ -2074,6 +2074,7 @@ def matmul(a,
       are both set to True.
   """
   assert(transpose_a == transpose_b == adjoint_a == adjoint_b == a_is_sparse == b_is_sparse == False)    # as we have not yet implemented them
+  assert(len(a.shape) == len(b.shape) == 2), "These are the minimum required shape dimensions"
   assert (a.shape[-1] == b.shape[-2]), "Not conformable!"      # last element of the first matches the second last element of second
   def checkConformability(L1, L2):
       return len(L1) == len(L2) and sorted(L1) == sorted(L2)
