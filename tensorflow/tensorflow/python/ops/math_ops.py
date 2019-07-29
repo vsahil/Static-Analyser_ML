@@ -1564,16 +1564,18 @@ def reduce_mean(input_tensor,
 
   @end_compatibility
   """
-  keepdims = deprecation.deprecated_argument_lookup("keepdims", keepdims,
-                                                    "keep_dims", keep_dims)
+  keepdims = deprecation.deprecated_argument_lookup("keepdims", keepdims, "keep_dims", keep_dims)
 
   if keepdims is None:
     keepdims = False
   assert(not(keepdims) and not(reduction_indices)), "current implementation"
   if axis:
-    assert(all(len(input_tensor.shape) > i > -len(input_tensor.shape)) for i in axis), "Must be in the range `[-rank(input_tensor), rank(input_tensor))`"
     raise NotImplementedError
-  return ops.Tensor(1, dtype = input_tensor.dtype)    # scalar is returned when axis=None
+    assert(all(len(input_tensor.shape) > i > -len(input_tensor.shape)) for i in axis), "Must be in the range `[-rank(input_tensor), rank(input_tensor))`"
+  if input_tensor.shape:  
+    return ops.Tensor(1, dtype = input_tensor.dtype)    # scalar is returned when axis=None
+  else:
+    return ops.Tensor(None, dtype = input_tensor.dtype)    # None is the shape when this happens
 
   # return _may_reduce_to_scalar(keepdims, axis, reduction_indices,
   #                              gen_math_ops.mean(

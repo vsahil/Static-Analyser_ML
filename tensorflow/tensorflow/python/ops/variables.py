@@ -289,7 +289,7 @@ class Variable(checkpointable.CheckpointableBase):
   #     return ret
   
   def __repr__(self):
-    return "tf.Variable shape = %s, type = %s" %(self._initial_value.shape, self._initial_value.dtype)
+    return "<tf.Variable shape = %s, type = %s>" %(self._initial_value.shape, self._initial_value.dtype)
     # return "<tf.Variable shape=%s" % (
         # self.shape)
 

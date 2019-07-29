@@ -1631,34 +1631,36 @@ def zeros(shape, dtype=dtypes.float32, name=None):
   Returns:
     A `Tensor` with all elements set to zero.
   """
-  dtype = dtypes.as_dtype(dtype).base_dtype
-  with ops.name_scope(name, "zeros", [shape]) as name:
-    if dtype == dtypes.bool:
-      zero = False
-    elif dtype == dtypes.string:
-      zero = ""
-    else:
-      zero = 0
+  return ops.Tensor(shape, dtypes.as_dtype(dtype).base_dtype)
 
-    if not isinstance(shape, ops.Tensor):
-      try:
-        # Create a constant if it won't be very big. Otherwise create a fill op
-        # to prevent serialized GraphDefs from becoming too large.
-        output = _constant_if_small(zero, shape, dtype, name)
-        if output is not None:
-          return output
+  # dtype = dtypes.as_dtype(dtype).base_dtype
+  # with ops.name_scope(name, "zeros", [shape]) as name:
+  #   if dtype == dtypes.bool:
+  #     zero = False
+  #   elif dtype == dtypes.string:
+  #     zero = ""
+  #   else:
+  #     zero = 0
 
-        # Go through tensor shapes to get int64-if-needed semantics
-        shape = constant_op._tensor_shape_tensor_conversion_function(
-            tensor_shape.TensorShape(shape))
-      except (TypeError, ValueError):
-        # Happens when shape is a list with tensor elements
-        shape = ops.convert_to_tensor(shape, dtype=dtypes.int32)
-    if not shape._shape_tuple():
-      shape = reshape(shape, [-1])  # Ensure it's a vector
-    output = fill(shape, constant(zero, dtype=dtype), name=name)
-  assert output.dtype.base_dtype == dtype
-  return output
+  #   if not isinstance(shape, ops.Tensor):
+  #     try:
+  #       # Create a constant if it won't be very big. Otherwise create a fill op
+  #       # to prevent serialized GraphDefs from becoming too large.
+  #       output = _constant_if_small(zero, shape, dtype, name)
+  #       if output is not None:
+  #         return output
+
+  #       # Go through tensor shapes to get int64-if-needed semantics
+  #       shape = constant_op._tensor_shape_tensor_conversion_function(
+  #           tensor_shape.TensorShape(shape))
+  #     except (TypeError, ValueError):
+  #       # Happens when shape is a list with tensor elements
+  #       shape = ops.convert_to_tensor(shape, dtype=dtypes.int32)
+  #   if not shape._shape_tuple():
+  #     shape = reshape(shape, [-1])  # Ensure it's a vector
+  #   output = fill(shape, constant(zero, dtype=dtype), name=name)
+  # assert output.dtype.base_dtype == dtype
+  # return output
 
 
 @tf_export("zeros_like")
@@ -1774,7 +1776,7 @@ def ones(shape, dtype=dtypes.float32, name=None):
   Returns:
     A `Tensor` with all elements set to 1.
   """
-  return ops.Tensor(shape, dtype)
+  return ops.Tensor(shape, dtypes.as_dtype(dtype).base_dtype)
 
   # dtype = dtypes.as_dtype(dtype).base_dtype
   # with ops.name_scope(name, "ones", [shape]) as name:

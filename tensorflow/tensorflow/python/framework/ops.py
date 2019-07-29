@@ -285,7 +285,8 @@ class Tensor(_TensorLike):
     Raises:
       TypeError: If the op is not an `Operation`.
     """
-    assert(all(isinstance(i, int)) for i in shape), "All shape values must be integers"
+    if shape and not isinstance(shape, int):   # for not None and int
+      assert(all(isinstance(i, int)) for i in shape), "All shape values must be integers"
     self.shape = shape
     self.dtype = dtype
   

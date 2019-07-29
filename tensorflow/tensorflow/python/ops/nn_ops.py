@@ -1957,8 +1957,11 @@ def softmax_cross_entropy_with_logits(
 
   _ensure_xent_args("softmax_cross_entropy_with_logits", _sentinel, labels, logits)
   assert(dim == -1), "Not implemented otherwise"
-  assert(logits.shape == labels.shape), "`logits` and `labels` must have the same shape"
-  return ops.Tensor(labels.shape[0])    # assuming first element of shape is the batchsize
+  if labels.shape:    # If this is not None, only then check shape
+    assert(logits.shape == labels.shape), "`logits` and `labels` must have the same shape"
+    return ops.Tensor(labels.shape[0])    # assuming first element of shape is the batchsize
+  else:
+    return ops.Tensor(labels.shape)    #, here labels.shape is None assuming first element of shape is the batchsize
   # with ops.name_scope(name, "softmax_cross_entropy_with_logits_sg",
   #                     [logits, labels]) as name:
   #   labels = array_ops.stop_gradient(labels, name="labels_stop_gradient")
