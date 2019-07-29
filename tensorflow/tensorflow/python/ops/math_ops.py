@@ -489,13 +489,14 @@ def square(x, name=None):
   Returns:
     A `Tensor` or `SparseTensor`. Has the same type as `x`.
   """
-  with ops.name_scope(name, "Square", [x]) as name:
-    if isinstance(x, sparse_tensor.SparseTensor):
-      x_square = gen_math_ops.square(x.values, name=name)
-      return sparse_tensor.SparseTensor(
-          indices=x.indices, values=x_square, dense_shape=x.dense_shape)
-    else:
-      return gen_math_ops.square(x, name=name)
+  return ops.Tensor(x.shape)    # this is the shape
+  # with ops.name_scope(name, "Square", [x]) as name:
+  #   if isinstance(x, sparse_tensor.SparseTensor):
+  #     x_square = gen_math_ops.square(x.values, name=name)
+  #     return sparse_tensor.SparseTensor(
+  #         indices=x.indices, values=x_square, dense_shape=x.dense_shape)
+  #   else:
+  #     return gen_math_ops.square(x, name=name)
 
 
 @tf_export("sqrt")
