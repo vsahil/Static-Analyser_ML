@@ -339,10 +339,18 @@ class Tensor(_TensorLike):
     return Tensor(None, None)     # returns a tensor which has no shape
   
   def __rtruediv__(self, other):   # doing only for stddev in Ut-7/playing.py; so 1.0/tensor
-    assert(isinstance(other, float))
+    # assert(isinstance(other, float))    # obvious
     assert(self.shape == None)
     return self
   
+  def __truediv__(self, other):   # doing only for tensor / (2 * n_samples) in Ut-10/
+    assert(self.shape == None)
+    return self
+
+  def __sub__(self, other):   # implementing it for activation - Y in UT-10, Y.shape = None
+    assert(other.shape == None)
+    return Tensor(None)   # unknown shape
+
   # @property
   # def op(self):
   #   """The `Operation` that produces this tensor as an output."""

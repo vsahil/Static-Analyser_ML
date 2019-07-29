@@ -338,7 +338,25 @@ def divide(x, y, name=None):
 
 @tf_export("multiply")
 def multiply(x, y, name=None):
-  return gen_math_ops.mul(x, y, name)
+  r"""Returns x * y element-wise.
+
+  *NOTE*: `Multiply` supports broadcasting. More about broadcasting
+  [here](http://docs.scipy.org/doc/numpy/user/basics.broadcasting.html)
+
+  Args:
+    x: A `Tensor`. Must be one of the following types: `bfloat16`, `half`, `float32`, `float64`, `uint8`, `int8`, `uint16`, `int16`, `int32`, `int64`, `complex64`, `complex128`.
+    y: A `Tensor`. Must have the same type as `x`.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `x`.
+  """
+  if (x.shape == y.shape):
+    return ops.Tensor(x.shape)
+  else:
+    raise NotImplementedError("Broadcasting not implemented yet")
+
+  # return gen_math_ops.mul(x, y, name)
 
 
 multiply.__doc__ = gen_math_ops.mul.__doc__.replace("Multiply", "`tf.multiply`")
@@ -577,6 +595,10 @@ def pow(x, y, name=None):  # pylint: disable=redefined-builtin
   Returns:
     A `Tensor`.
   """
+  if not isinstance(y, int):
+    assert(x.shape == y.shape), "must be of same shape"
+  return ops.Tensor(x.shape)    # this is the shape of returned tensor
+
   with ops.name_scope(name, "Pow", [x]) as name:
     return gen_math_ops._pow(x, y, name=name)
 
@@ -1428,7 +1450,10 @@ def reduce_sum(input_tensor,
   if axis:
     assert(all(len(input_tensor.shape) > i > -len(input_tensor.shape)) for i in axis), "Must be in the range `[-rank(input_tensor), rank(input_tensor))`"
     raise NotImplementedError
-  return ops.Tensor(1, dtype = input_tensor.dtype)    # scalar is returned when axis=None
+  if input_tensor.shape:
+    return ops.Tensor(1, dtype = input_tensor.dtype)    # scalar is returned when axis=None
+  else:
+    return ops.Tensor(None, dtype = input_tensor.dtype)    # scalar is returned when axis=None
 
   # return _may_reduce_to_scalar(keepdims, axis, reduction_indices,
   #                              gen_math_ops._sum(
