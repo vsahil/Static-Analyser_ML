@@ -326,13 +326,20 @@ class Tensor(_TensorLike):
       # return 
       # assert False
   
-  
   def __mul__(self, other):
       assert(self.shape == other.shape), "for multiplication shape must be same"
       return self    # this is output shape
   
   def __neg__(self):
     return self    # this is output shape  
+  
+  def __getitem__(self, index):
+    return Tensor(None, None)     # returns a tensor which has no shape
+  
+  def __rtruediv__(self, other):   # doing only for stddev in Ut-7/playing.py; so 1.0/tensor
+    assert(isinstance(other, float))
+    assert(self.shape == None)
+    return self
   
   # @property
   # def op(self):

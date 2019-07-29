@@ -220,6 +220,7 @@ class Variable(checkpointable.CheckpointableBase):
         if isinstance(initial_value, list):
           ret = initial_value
         elif isinstance(initial_value, ops.Tensor):
+          assert(initial_value.shape), "Initial shape can't be None"
           ret = initial_value.shape     # so that a list is returned in all cases
     else:
       ret = expected_shape

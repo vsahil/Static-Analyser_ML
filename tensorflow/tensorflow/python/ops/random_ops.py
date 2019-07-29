@@ -175,7 +175,10 @@ def truncated_normal(shape,
   Returns:
     A tensor of the specified shape filled with random truncated normal values.
   """
-  return ops.Tensor(shape, dtype)
+  if not isinstance(shape, ops.Tensor):
+    return ops.Tensor(shape, dtype)
+  else:
+    return ops.Tensor(shape.shape, dtype)     
   # Returns a tensor of the same shape as input
 
   # with ops.name_scope(name, "truncated_normal", [shape, mean, stddev]) as name:

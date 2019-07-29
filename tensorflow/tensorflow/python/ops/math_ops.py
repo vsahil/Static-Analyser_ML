@@ -776,8 +776,12 @@ def cast(x, dtype, name=None):
   Raises:
     TypeError: If `x` cannot be cast to the `dtype`.
   """
-  
-  return ops.Tensor(x.shape, dtype)   # return a tensor of same shape and the desired dtype
+  if isinstance(x, ops.Tensor):
+    return ops.Tensor(x.shape, dtype)   # return a tensor of same shape and the desired dtype
+  elif isinstance(x, int):
+    return x      # this is already shape in that case.
+  else:
+    raise NotImplementedError("Only tensor or integer accepted at the moment %s", type(x))
 
   # base_type = dtypes.as_dtype(dtype).base_dtype
   # with ops.name_scope(name, "Cast", [x]) as name:

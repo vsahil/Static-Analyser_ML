@@ -289,7 +289,14 @@ def shape(input, name=None, out_type=dtypes.int32):
   Returns:
     A `Tensor` of type `out_type`.
   """
-  return shape_internal(input, name, optimize=True, out_type=out_type)
+  # return input.shape    # not sure how is this going to affect later, returning non-tensor
+  if "dtype:" in str(out_type):
+    # print("hello1234", "dtype:" in str(out_type), str(out_type), input.dtype)
+    return ops.Tensor(input.shape, input.dtype)    # it is an tensor, it would return the shape as a tensor, so it is not same as returning input.shape
+  else:
+    # print("hello", "dtype:" in str(out_type), str(out_type))
+    return ops.Tensor(input.shape, out_type)
+  # return shape_internal(input, name, optimize=True, out_type=out_type)
 
 
 # def shape_internal(input, name=None, optimize=True, out_type=dtypes.int32):
@@ -938,6 +945,12 @@ def stack(values, axis=0, name="stack"):
   Raises:
     ValueError: If `axis` is out of the range [-(R+1), R+1).
   """
+  assert(isinstance(values, list) and axis == 0 and len(values) == 2)
+  if not values[0].shape and not values[1].shape:
+    return ops.Tensor(None, None)
+  else:
+    print(values[0].shape, values[1].shape); assert False
+  
   if axis == 0:
     try:
       # If the input is a constant list, it can be converted to a constant op
