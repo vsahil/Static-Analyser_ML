@@ -1230,7 +1230,7 @@ def static_rnn(cell,
     raise TypeError("inputs must be a sequence")
   if not inputs:
     raise ValueError("inputs must not be empty")
-
+  assert(initial_state is None and sequence_length is None), "Not implemented other parts"
   outputs = []
   # Create a new scope in which the caching device is either
   # determined by the parent scope, or is set to place the cached
@@ -1242,42 +1242,59 @@ def static_rnn(cell,
 
     # Obtain the first sequence of the input
     first_input = inputs
-    while nest.is_sequence(first_input):
+    while nest.is_sequence(first_input):    # this is DFS in first_input[0]
       first_input = first_input[0]
+      # print(first_input, "continue")
 
     # Temporarily avoid EmbeddingWrapper and seq2seq badness
     # TODO(lukaszkaiser): remove EmbeddingWrapper
-    if first_input.get_shape().ndims != 1:
-
-      input_shape = first_input.get_shape().with_rank_at_least(2)
+    if len(first_input.shape) != 1:
+      # print("I am here")
+      # input_shape = first_input.get_shape().with_rank_at_least(2)
+      input_shape = first_input.shape   # equivalent to above
       fixed_batch_size = input_shape[0]
 
       flat_inputs = nest.flatten(inputs)
       for flat_input in flat_inputs:
-        input_shape = flat_input.get_shape().with_rank_at_least(2)
+        # print(flat_input, flat_input.shape)
+        # input_shape = flat_input.get_shape().with_rank_at_least(2)
+        input_shape = flat_input.shape    # equivalent to above
         batch_size, input_size = input_shape[0], input_shape[1:]
-        fixed_batch_size.merge_with(batch_size)
+        # fixed_batch_size.merge_with(batch_size)       # equivalent code written below
+        
+        # if fixed_batch_size is None and batch_size is None:
+        #   fixed_batch_size = fixed_batch_size
+        if fixed_batch_size is not None and batch_size is not None:
+          assert(fixed_batch_size == batch_size)
+        #   fixed_batch_size = fixed_batch_size   # any thing can be returned
+        elif fixed_batch_size is None:
+          # print("this is me", fixed_batch_size, batch_size)
+          fixed_batch_size = batch_size
+        # elif batch_size is None:
+          # fixed_batch_size = fixed_batch_size
+        # print("fixed batch size", fixed_batch_size)
+        
         for i, size in enumerate(input_size):
-          if size.value is None:
+          if size is None:
             raise ValueError(
                 "Input size (dimension %d of inputs) must be accessible via "
                 "shape inference, but saw value None." % i)
     else:
       fixed_batch_size = first_input.get_shape().with_rank_at_least(1)[0]
 
-    if fixed_batch_size.value:
-      batch_size = fixed_batch_size.value
+    if fixed_batch_size:    # Not None, doesn't enter here
+      batch_size = fixed_batch_size
     else:
-      batch_size = array_ops.shape(first_input)[0]
-    if initial_state is not None:
+      batch_size = first_input.shape[0]     # batch size, becomes None again
+      # print("updated batch size", batch_size)
+    if initial_state is not None:   # doesn't enter here
       state = initial_state
     else:
       if not dtype:
-        raise ValueError("If no initial_state is provided, "
-                         "dtype must be specified")
+        raise ValueError("If no initial_state is provided, dtype must be specified")
       state = cell.zero_state(batch_size, dtype)
 
-    if sequence_length is not None:  # Prepare variables
+    if sequence_length is not None:     # doesn't enter here Prepare variables
       sequence_length = ops.convert_to_tensor(
           sequence_length, name="sequence_length")
       if sequence_length.get_shape().ndims not in (None, 1):
@@ -1303,14 +1320,14 @@ def static_rnn(cell,
       sequence_length = math_ops.to_int32(sequence_length)
       min_sequence_length = math_ops.reduce_min(sequence_length)
       max_sequence_length = math_ops.reduce_max(sequence_length)
-
+    # print(inputs, "ssee")
     for time, input_ in enumerate(inputs):
       if time > 0:
         varscope.reuse_variables()
       # pylint: disable=cell-var-from-loop
       call_cell = lambda: cell(input_, state)
       # pylint: enable=cell-var-from-loop
-      if sequence_length is not None:
+      if sequence_length is not None:      # doesn't enter here
         (output, state) = _rnn_step(
             time=time,
             sequence_length=sequence_length,
@@ -1322,7 +1339,7 @@ def static_rnn(cell,
             state_size=cell.state_size)
       else:
         (output, state) = call_cell()
-
+      # print()
       outputs.append(output)
 
     return (outputs, state)

@@ -1392,20 +1392,27 @@ def split(value, num_or_size_splits, axis=0, num=None, name="split"):
   Raises:
     ValueError: If `num` is unspecified and cannot be inferred.
   """
-  size_splits = ops.convert_to_tensor(num_or_size_splits)
-  if size_splits._rank() == 0 and size_splits.dtype.is_integer:
-    return gen_array_ops.split(
-        axis=axis, num_split=num_or_size_splits, value=value, name=name)
+  assert(isinstance(num_or_size_splits, int)), "Tensor splits not implemented"
+  if value.shape[axis]:   # only is this is not None
+    assert(value.shape[axis] % num_or_size_splits == 0), "Requires that `num_split` evenly divides `value.shape[axis]`"
+  output_shape = value.shape[:]
+  output_shape[axis] = value.shape[axis] // num_or_size_splits if value.shape[axis] else value.shape[axis]      # If it is none, just put None as None
+  return [ops.Tensor(output_shape, value.dtype) for _ in range(num_or_size_splits)]   # returns a list of Tensors of output_shape
 
-  if num is None:
-    size_splits_shape = size_splits._shape_tuple()
-    if size_splits_shape:
-      num = size_splits_shape[0]
-    if num is None:
-      raise ValueError("Cannot infer num from shape %s" % num_or_size_splits)
+  # size_splits = ops.convert_to_tensor(num_or_size_splits)
+  # if size_splits._rank() == 0 and size_splits.dtype.is_integer:
+  #   return gen_array_ops.split(
+  #       axis=axis, num_split=num_or_size_splits, value=value, name=name)
 
-  return gen_array_ops.split_v(
-      value=value, size_splits=size_splits, axis=axis, num_split=num, name=name)
+  # if num is None:
+  #   size_splits_shape = size_splits._shape_tuple()
+  #   if size_splits_shape:
+  #     num = size_splits_shape[0]
+  #   if num is None:
+  #     raise ValueError("Cannot infer num from shape %s" % num_or_size_splits)
+
+  # return gen_array_ops.split_v(
+  #     value=value, size_splits=size_splits, axis=axis, num_split=num, name=name)
 
 
 @tf_export("transpose")
@@ -1473,23 +1480,29 @@ def transpose(a, perm=None, name="transpose", conjugate=False):
   Returns:
     A transposed `Tensor`.
   """
-  with ops.name_scope(name, "transpose", [a]) as name:
-    transpose_fn = (
-        gen_array_ops.conjugate_transpose
-        if (conjugate and a.dtype.is_complex) else gen_array_ops.transpose)
-    if perm is None:
-      rank = gen_array_ops.rank(a)
-      perm = (rank - 1) - gen_math_ops._range(0, rank, 1)
-      ret = transpose_fn(a, perm, name=name)
-      # NOTE(mrry): Setting the shape explicitly because
-      #   reverse is not handled by the shape function.
-      if not context.executing_eagerly():
-        input_shape = ret.op.inputs[0].get_shape().dims
-        if input_shape is not None:
-          ret.set_shape(input_shape[::-1])
-    else:
-      ret = transpose_fn(a, perm, name=name)
-    return ret
+  assert(conjugate == False)
+  if perm == None:
+    perm = [i for i in range(len(a.shape)-1, -1, -1)]
+  output_shape = [a.shape[i] for i in perm]
+  return ops.Tensor(output_shape, a.dtype)
+  
+  # with ops.name_scope(name, "transpose", [a]) as name:
+  #   transpose_fn = (
+  #       gen_array_ops.conjugate_transpose
+  #       if (conjugate and a.dtype.is_complex) else gen_array_ops.transpose)
+  #   if perm is None:
+  #     rank = gen_array_ops.rank(a)
+  #     perm = (rank - 1) - gen_math_ops._range(0, rank, 1)
+  #     ret = transpose_fn(a, perm, name=name)
+  #     # NOTE(mrry): Setting the shape explicitly because
+  #     #   reverse is not handled by the shape function.
+  #     if not context.executing_eagerly():
+  #       input_shape = ret.op.inputs[0].get_shape().dims
+  #       if input_shape is not None:
+  #         ret.set_shape(input_shape[::-1])
+  #   else:
+  #     ret = transpose_fn(a, perm, name=name)
+  #   return ret
 
 
 # pylint: disable=invalid-name

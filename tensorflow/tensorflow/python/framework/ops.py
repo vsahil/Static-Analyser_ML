@@ -670,9 +670,8 @@ class Tensor(_TensorLike):
   #       if self._dtype else "", (", device=%s" % self.device)
   #       if self.device else "")
 
-  # def __repr__(self):
-  #   return "<tf.Tensor '%s' shape=%s dtype=%s>" % (self.name, self.get_shape(),
-  #                                                  self._dtype.name)
+  def __repr__(self):
+    return "<tf.Tensor shape=%s dtype=%s>" % (self.shape, self.dtype)
 
   # def __hash__(self):
   #   # Necessary to support Python's collection membership operators

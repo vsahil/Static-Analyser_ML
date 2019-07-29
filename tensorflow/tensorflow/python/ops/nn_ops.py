@@ -1954,15 +1954,17 @@ def softmax_cross_entropy_with_logits(
     A 1-D `Tensor` of length `batch_size` of the same type as `logits` with the
     softmax cross entropy loss.
   """
-  _ensure_xent_args("softmax_cross_entropy_with_logits", _sentinel, labels,
-                    logits)
 
-  with ops.name_scope(name, "softmax_cross_entropy_with_logits_sg",
-                      [logits, labels]) as name:
-    labels = array_ops.stop_gradient(labels, name="labels_stop_gradient")
+  _ensure_xent_args("softmax_cross_entropy_with_logits", _sentinel, labels, logits)
+  assert(dim == -1), "Not implemented otherwise"
+  assert(logits.shape == labels.shape), "`logits` and `labels` must have the same shape"
+  return ops.Tensor(labels.shape[0])    # assuming first element of shape is the batchsize
+  # with ops.name_scope(name, "softmax_cross_entropy_with_logits_sg",
+  #                     [logits, labels]) as name:
+  #   labels = array_ops.stop_gradient(labels, name="labels_stop_gradient")
 
-  return softmax_cross_entropy_with_logits_v2(
-      labels=labels, logits=logits, dim=dim, name=name)
+  # return softmax_cross_entropy_with_logits_v2(
+  #     labels=labels, logits=logits, dim=dim, name=name)
 
 
 @tf_export("nn.sparse_softmax_cross_entropy_with_logits")

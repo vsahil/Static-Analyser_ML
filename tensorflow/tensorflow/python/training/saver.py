@@ -1306,6 +1306,7 @@ class Saver(object):
     of variables to save. Otherwise, a `RuntimeError` will be raised.
     @end_compatibility
     """
+    return # Do nothing
     if defer_build and var_list:
       raise ValueError(
           "If `var_list` is provided then build cannot be deferred. "

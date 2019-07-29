@@ -896,11 +896,11 @@ class BaseSession(SessionInterface):
     run_metadata_ptr = tf_session.TF_NewBuffer() if run_metadata else None
 
     assert(options_ptr == run_metadata_ptr == None), "Notimplemented"
-    print(fetches, type(fetches))
+    # print(fetches, type(fetches))
     try:
-      print(fetches, feed_dict, "DEKHO")
+      # print(fetches, feed_dict, "DEKHO")
       result = self._run(None, fetches, feed_dict, options_ptr, run_metadata_ptr)
-      return result
+      # return result
       if run_metadata:
         proto_data = tf_session.TF_GetBuffer(run_metadata_ptr)
         run_metadata.ParseFromString(compat.as_bytes(proto_data))

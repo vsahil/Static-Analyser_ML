@@ -277,7 +277,7 @@ def embedding_lookup(
   Args:
     params: A single tensor representing the complete embedding tensor,
       or a list of P tensors all of same shape except for the first dimension,
-      representing sharded embedding tensors.  Alternatively, a
+      representing shared embedding tensors.  Alternatively, a
       `PartitionedVariable`, created by partitioning along dimension 0. Each
       element must be appropriately sized for the given `partition_strategy`.
     ids: A `Tensor` with type `int32` or `int64` containing the ids to be looked
@@ -299,13 +299,17 @@ def embedding_lookup(
   Raises:
     ValueError: If `params` is empty.
   """
-  return _embedding_lookup_and_transform(
-      params=params,
-      ids=ids,
-      partition_strategy=partition_strategy,
-      name=name,
-      max_norm=max_norm,
-      transform_fn=None)
+
+  assert(params and partition_strategy == "mod" and not max_norm), "params must not be empty and div is not implemented and max_norm is None"
+  return ops.Tensor(ids.shape + params.shape[1:])    # this is the shape of the emdedding layer
+
+  # return _embedding_lookup_and_transform(
+  #     params=params,
+  #     ids=ids,
+  #     partition_strategy=partition_strategy,
+  #     name=name,
+  #     max_norm=max_norm,
+  #     transform_fn=None)
 
 
 @tf_export("nn.embedding_lookup_sparse")

@@ -4,6 +4,7 @@ abstract_dict = {
     # "tf.Variable": "abst.var",
     # "tf.random_normal": "abst.rand_normal_",
     "np.random.randn": "abst.random_randn",
+    "np.random.randint" : "abst.random_randint",
     # "tf.matmul": "abst.matmul"
     # "import numpy": "# import numpy"
 }

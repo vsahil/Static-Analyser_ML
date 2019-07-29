@@ -235,25 +235,28 @@ def random_uniform(shape,
   Raises:
     ValueError: If `dtype` is integral and `maxval` is not specified.
   """
-  dtype = dtypes.as_dtype(dtype)
-  if dtype not in (dtypes.float16, dtypes.bfloat16, dtypes.float32,
-                   dtypes.float64, dtypes.int32, dtypes.int64):
-    raise ValueError("Invalid dtype %r" % dtype)
-  if maxval is None:
-    if dtype.is_integer:
-      raise ValueError("Must specify maxval for integer dtype %r" % dtype)
-    maxval = 1
-  with ops.name_scope(name, "random_uniform", [shape, minval, maxval]) as name:
-    shape = _ShapeTensor(shape)
-    minval = ops.convert_to_tensor(minval, dtype=dtype, name="min")
-    maxval = ops.convert_to_tensor(maxval, dtype=dtype, name="max")
-    seed1, seed2 = random_seed.get_seed(seed)
-    if dtype.is_integer:
-      return gen_random_ops.random_uniform_int(
-          shape, minval, maxval, seed=seed1, seed2=seed2, name=name)
-    else:
-      rnd = gen_random_ops.random_uniform(shape, dtype, seed=seed1, seed2=seed2)
-      return math_ops.add(rnd * (maxval - minval), minval, name=name)
+  # assert(isinstance(dtype, dtype.float32)), "Other not implemented"
+  return ops.Tensor(shape, dtype)   # output shape is shape
+
+  # dtype = dtypes.as_dtype(dtype)
+  # if dtype not in (dtypes.float16, dtypes.bfloat16, dtypes.float32,
+  #                  dtypes.float64, dtypes.int32, dtypes.int64):
+  #   raise ValueError("Invalid dtype %r" % dtype)
+  # if maxval is None:
+  #   if dtype.is_integer:
+  #     raise ValueError("Must specify maxval for integer dtype %r" % dtype)
+  #   maxval = 1
+  # with ops.name_scope(name, "random_uniform", [shape, minval, maxval]) as name:
+  #   shape = _ShapeTensor(shape)
+  #   minval = ops.convert_to_tensor(minval, dtype=dtype, name="min")
+  #   maxval = ops.convert_to_tensor(maxval, dtype=dtype, name="max")
+  #   seed1, seed2 = random_seed.get_seed(seed)
+  #   if dtype.is_integer:
+  #     return gen_random_ops.random_uniform_int(
+  #         shape, minval, maxval, seed=seed1, seed2=seed2, name=name)
+  #   else:
+  #     rnd = gen_random_ops.random_uniform(shape, dtype, seed=seed1, seed2=seed2)
+  #     return math_ops.add(rnd * (maxval - minval), minval, name=name)
 
 
 ops.NotDifferentiable("RandomUniform")

@@ -283,6 +283,15 @@ class RNNCell(base_layer.Layer):
     # Try to use the last cached zero_state. This is done to avoid recreating
     # zeros, especially when eager execution is enabled.
     state_size = self.state_size
+    # print(state_size, type(state_size))   # this is a tuple
+    out = []
+    for s in state_size:
+      shp = ops.Tensor([batch_size, s], dtype)      # 2-D tensors of this shape
+      out.append(shp)
+    if "Tuple" in str(state_size):
+      return tuple(out)
+    else:
+      raise NotImplementedError("List is not implemented %s"%(state_size))
     is_eager = context.executing_eagerly()
     if is_eager and hasattr(self, "_last_zero_state"):
       (last_state_size, last_batch_size, last_dtype,
@@ -335,8 +344,9 @@ class LayerRNNCell(RNNCell):
     # Bypass RNNCell's variable capturing semantics for LayerRNNCell.
     # Instead, it is up to subclasses to provide a proper build
     # method.  See the class docstring for more details.
-    return base_layer.Layer.__call__(self, inputs, state, scope=scope,
-                                     *args, **kwargs)
+    # print(inputs, state, "ME", self.state_size, self.output_size)
+    return (ops.Tensor([inputs.shape[0], self.output_size]), state)   
+    # return base_layer.Layer.__call__(self, inputs, state, scope=scope, *args, **kwargs)
 
 
 @tf_export("nn.rnn_cell.BasicRNNCell")

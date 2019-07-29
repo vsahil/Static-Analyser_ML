@@ -1263,78 +1263,78 @@ _OverrideBinaryOperatorHelper(logical_xor, "xor")
 # ops.Tensor._override_operator("__ge__", gen_math_ops.greater_equal)
 
 
-@tf_export("range")
-def range(start, limit=None, delta=1, dtype=None, name="range"):  # pylint: disable=redefined-builtin
-  """Creates a sequence of numbers.
+# # @tf_export("range")
+# def range(start, limit=None, delta=1, dtype=None, name="range"):  # pylint: disable=redefined-builtin
+#   """Creates a sequence of numbers.
 
-  Creates a sequence of numbers that begins at `start` and extends by
-  increments of `delta` up to but not including `limit`.
+#   Creates a sequence of numbers that begins at `start` and extends by
+#   increments of `delta` up to but not including `limit`.
 
-  The dtype of the resulting tensor is inferred from the inputs unless
-  it is provided explicitly.
+#   The dtype of the resulting tensor is inferred from the inputs unless
+#   it is provided explicitly.
 
-  Like the Python builtin `range`, `start` defaults to 0, so that
-  `range(n) = range(0, n)`.
+#   Like the Python builtin `range`, `start` defaults to 0, so that
+#   `range(n) = range(0, n)`.
 
-  For example:
+#   For example:
 
-  ```python
-  start = 3
-  limit = 18
-  delta = 3
-  tf.range(start, limit, delta)  # [3, 6, 9, 12, 15]
+#   ```python
+#   start = 3
+#   limit = 18
+#   delta = 3
+#   tf.range(start, limit, delta)  # [3, 6, 9, 12, 15]
 
-  start = 3
-  limit = 1
-  delta = -0.5
-  tf.range(start, limit, delta)  # [3, 2.5, 2, 1.5]
+#   start = 3
+#   limit = 1
+#   delta = -0.5
+#   tf.range(start, limit, delta)  # [3, 2.5, 2, 1.5]
 
-  limit = 5
-  tf.range(limit)  # [0, 1, 2, 3, 4]
-  ```
+#   limit = 5
+#   tf.range(limit)  # [0, 1, 2, 3, 4]
+#   ```
 
-  Args:
-    start: A 0-D `Tensor` (scalar). Acts as first entry in the range if
-      `limit` is not None; otherwise, acts as range limit and first entry
-      defaults to 0.
-    limit: A 0-D `Tensor` (scalar). Upper limit of sequence,
-      exclusive. If None, defaults to the value of `start` while the first
-      entry of the range defaults to 0.
-    delta: A 0-D `Tensor` (scalar). Number that increments
-      `start`. Defaults to 1.
-    dtype: The type of the elements of the resulting tensor.
-    name: A name for the operation. Defaults to "range".
+#   Args:
+#     start: A 0-D `Tensor` (scalar). Acts as first entry in the range if
+#       `limit` is not None; otherwise, acts as range limit and first entry
+#       defaults to 0.
+#     limit: A 0-D `Tensor` (scalar). Upper limit of sequence,
+#       exclusive. If None, defaults to the value of `start` while the first
+#       entry of the range defaults to 0.
+#     delta: A 0-D `Tensor` (scalar). Number that increments
+#       `start`. Defaults to 1.
+#     dtype: The type of the elements of the resulting tensor.
+#     name: A name for the operation. Defaults to "range".
 
-  Returns:
-    An 1-D `Tensor` of type `dtype`.
+#   Returns:
+#     An 1-D `Tensor` of type `dtype`.
 
-  @compatibility(numpy)
-  Equivalent to np.arange
-  @end_compatibility
-  """
-  if limit is None:
-    start, limit = 0, start
+#   @compatibility(numpy)
+#   Equivalent to np.arange
+#   @end_compatibility
+#   """
+#   if limit is None:
+#     start, limit = 0, start
 
-  with ops.name_scope(name, "Range", [start, limit, delta]) as name:
-    start = ops.convert_to_tensor(start, dtype=dtype, name="start")
-    limit = ops.convert_to_tensor(limit, dtype=dtype, name="limit")
-    delta = ops.convert_to_tensor(delta, dtype=dtype, name="delta")
+#   with ops.name_scope(name, "Range", [start, limit, delta]) as name:
+#     start = ops.convert_to_tensor(start, dtype=dtype, name="start")
+#     limit = ops.convert_to_tensor(limit, dtype=dtype, name="limit")
+#     delta = ops.convert_to_tensor(delta, dtype=dtype, name="delta")
 
-    # infer dtype if not explicitly provided
-    if dtype is None:
-      dtype_hierarchy = [
-          dtypes.int32, dtypes.int64, dtypes.float32, dtypes.float64
-      ]
-      assert all(arg.dtype in dtype_hierarchy for arg in [start, limit, delta])
-      inferred_dtype = max(
-          [arg.dtype for arg in [start, limit, delta]],
-          key=dtype_hierarchy.index)
+#     # infer dtype if not explicitly provided
+#     if dtype is None:
+#       dtype_hierarchy = [
+#           dtypes.int32, dtypes.int64, dtypes.float32, dtypes.float64
+#       ]
+#       assert all(arg.dtype in dtype_hierarchy for arg in [start, limit, delta])
+#       inferred_dtype = max(
+#           [arg.dtype for arg in [start, limit, delta]],
+#           key=dtype_hierarchy.index)
 
-      start = cast(start, inferred_dtype)
-      limit = cast(limit, inferred_dtype)
-      delta = cast(delta, inferred_dtype)
+#       start = cast(start, inferred_dtype)
+#       limit = cast(limit, inferred_dtype)
+#       delta = cast(delta, inferred_dtype)
 
-    return gen_math_ops._range(start, limit, delta, name=name)
+#     return gen_math_ops._range(start, limit, delta, name=name)
 
 
 # Reduction operations
@@ -2075,84 +2075,84 @@ def matmul(a,
       return len(L1) == len(L2) and sorted(L1) == sorted(L2)
   assert (checkConformability(a.shape[:-2], b.shape[:-2])), "Not conformable!"       # handles multidimensional matrices
   result_shape = [*a.shape[:-2], a.shape[-2], b.shape[-1]]
-  if isinstance(a, variables.Variable) and isinstance(b, variables.Variable):    # assert the types of a and b you wanna use for now
-    return variables.Variable(result_shape)
-  elif isinstance(a, ops.Tensor) and isinstance(b, variables.Variable):
-    return ops.Tensor(result_shape)   # No_dtype
-  else:
-    print(type(a), type(b))
-    assert False, "TypeError : above"
+  # if isinstance(a, variables.Variable) and isinstance(b, variables.Variable):    # assert the types of a and b you wanna use for now
+    # return variables.Variable(result_shape)
+  # elif isinstance(a, ops.Tensor) and isinstance(b, variables.Variable):
+  return ops.Tensor(result_shape)   # No_dtype
+  # else:
+    # print(type(a), type(b))
+    # assert False, "TypeError : above"
   
   
-  with ops.name_scope(name, "MatMul", [a, b]) as name:
-    if transpose_a and adjoint_a:
-      raise ValueError("Only one of transpose_a and adjoint_a can be True.")
-    if transpose_b and adjoint_b:
-      raise ValueError("Only one of transpose_b and adjoint_b can be True.")
+  # with ops.name_scope(name, "MatMul", [a, b]) as name:
+  #   if transpose_a and adjoint_a:
+  #     raise ValueError("Only one of transpose_a and adjoint_a can be True.")
+  #   if transpose_b and adjoint_b:
+  #     raise ValueError("Only one of transpose_b and adjoint_b can be True.")
 
-    if context.executing_eagerly():
-      if not isinstance(a, (ops.EagerTensor, _resource_variable_type)):
-        a = ops.convert_to_tensor(a, name="a")
-      if not isinstance(b, (ops.EagerTensor, _resource_variable_type)):
-        b = ops.convert_to_tensor(b, name="b")
-    else:
-      a = ops.convert_to_tensor(a, name="a")
-      b = ops.convert_to_tensor(b, name="b")
+  #   if context.executing_eagerly():
+  #     if not isinstance(a, (ops.EagerTensor, _resource_variable_type)):
+  #       a = ops.convert_to_tensor(a, name="a")
+  #     if not isinstance(b, (ops.EagerTensor, _resource_variable_type)):
+  #       b = ops.convert_to_tensor(b, name="b")
+  #   else:
+  #     a = ops.convert_to_tensor(a, name="a")
+  #     b = ops.convert_to_tensor(b, name="b")
 
-    # TODO(apassos) remove _shape_tuple here when it is not needed.
-    a_shape = a._shape_tuple()  # pylint: disable=protected-access
-    b_shape = b._shape_tuple()  # pylint: disable=protected-access
-    if (not a_is_sparse and
-        not b_is_sparse) and ((a_shape is None or len(a_shape) > 2) and
-                              (b_shape is None or len(b_shape) > 2)):
-      # BatchMatmul does not support transpose, so we conjugate the matrix and
-      # use adjoint instead. Conj() is a noop for real matrices.
-      if transpose_a:
-        a = conj(a)
-        adjoint_a = True
-      if transpose_b:
-        b = conj(b)
-        adjoint_b = True
-      return gen_math_ops.batch_mat_mul(
-          a, b, adj_x=adjoint_a, adj_y=adjoint_b, name=name)
+  #   # TODO(apassos) remove _shape_tuple here when it is not needed.
+  #   a_shape = a._shape_tuple()  # pylint: disable=protected-access
+  #   b_shape = b._shape_tuple()  # pylint: disable=protected-access
+  #   if (not a_is_sparse and
+  #       not b_is_sparse) and ((a_shape is None or len(a_shape) > 2) and
+  #                             (b_shape is None or len(b_shape) > 2)):
+  #     # BatchMatmul does not support transpose, so we conjugate the matrix and
+  #     # use adjoint instead. Conj() is a noop for real matrices.
+  #     if transpose_a:
+  #       a = conj(a)
+  #       adjoint_a = True
+  #     if transpose_b:
+  #       b = conj(b)
+  #       adjoint_b = True
+  #     return gen_math_ops.batch_mat_mul(
+  #         a, b, adj_x=adjoint_a, adj_y=adjoint_b, name=name)
 
-    # Neither matmul nor sparse_matmul support adjoint, so we conjugate
-    # the matrix and use transpose instead. Conj() is a noop for real
-    # matrices.
-    if adjoint_a:
-      a = conj(a)
-      transpose_a = True
-    if adjoint_b:
-      b = conj(b)
-      transpose_b = True
+  #   # Neither matmul nor sparse_matmul support adjoint, so we conjugate
+  #   # the matrix and use transpose instead. Conj() is a noop for real
+  #   # matrices.
+  #   if adjoint_a:
+  #     a = conj(a)
+  #     transpose_a = True
+  #   if adjoint_b:
+  #     b = conj(b)
+  #     transpose_b = True
 
-    use_sparse_matmul = False
-    if a_is_sparse or b_is_sparse:
-      sparse_matmul_types = [dtypes.bfloat16, dtypes.float32]
-      use_sparse_matmul = (
-          a.dtype in sparse_matmul_types and b.dtype in sparse_matmul_types)
-    if (a.dtype == dtypes.bfloat16 or b.dtype == dtypes.bfloat16 and
-        a.dtype != b.dtype):
-      # matmul currently doesn't handle mixed-precision inputs.
-      use_sparse_matmul = True
-    if use_sparse_matmul:
-      ret = sparse_matmul(
-          a,
-          b,
-          transpose_a=transpose_a,
-          transpose_b=transpose_b,
-          a_is_sparse=a_is_sparse,
-          b_is_sparse=b_is_sparse,
-          name=name)
-      # sparse_matmul always returns float32, even with
-      # bfloat16 inputs. This prevents us from configuring bfloat16 training.
-      # casting to bfloat16 also matches non-sparse matmul behavior better.
-      if a.dtype == dtypes.bfloat16 and b.dtype == dtypes.bfloat16:
-        ret = cast(ret, dtypes.bfloat16)
-      return ret
-    else:
-      return gen_math_ops.mat_mul(
-          a, b, transpose_a=transpose_a, transpose_b=transpose_b, name=name)
+  #   use_sparse_matmul = False
+  #   if a_is_sparse or b_is_sparse:
+  #     sparse_matmul_types = [dtypes.bfloat16, dtypes.float32]
+  #     use_sparse_matmul = (
+  #         a.dtype in sparse_matmul_types and b.dtype in sparse_matmul_types)
+  #   if (a.dtype == dtypes.bfloat16 or b.dtype == dtypes.bfloat16 and
+  #       a.dtype != b.dtype):
+  #     # matmul currently doesn't handle mixed-precision inputs.
+  #     use_sparse_matmul = True
+  #   if use_sparse_matmul:
+  #     ret = sparse_matmul(
+  #         a,
+  #         b,
+  #         transpose_a=transpose_a,
+  #         transpose_b=transpose_b,
+  #         a_is_sparse=a_is_sparse,
+  #         b_is_sparse=b_is_sparse,
+  #         name=name)
+  #     # sparse_matmul always returns float32, even with
+  #     # bfloat16 inputs. This prevents us from configuring bfloat16 training.
+  #     # casting to bfloat16 also matches non-sparse matmul behavior better.
+  #     if a.dtype == dtypes.bfloat16 and b.dtype == dtypes.bfloat16:
+  #       ret = cast(ret, dtypes.bfloat16)
+  #     return ret
+  #   else:
+  #     return gen_math_ops.mat_mul(
+  #         a, b, transpose_a=transpose_a, transpose_b=transpose_b, name=name)
 
 
 _OverrideBinaryOperatorHelper(matmul, "matmul")
@@ -2370,9 +2370,11 @@ def sigmoid(x, name=None):
   Equivalent to np.scipy.special.expit
   @end_compatibility
   """
-  with ops.name_scope(name, "Sigmoid", [x]) as name:
-    x = ops.convert_to_tensor(x, name="x")
-    return gen_math_ops.sigmoid(x, name=name)
+  return ops.Tensor(x.shape)    # same shape; no dtype
+
+  # with ops.name_scope(name, "Sigmoid", [x]) as name:
+  #   x = ops.convert_to_tensor(x, name="x")
+  #   return gen_math_ops.sigmoid(x, name=name)
 
 
 @tf_export("log_sigmoid")
@@ -3226,3 +3228,62 @@ def equal(x, y, name=None):
   #     "Equal", _inputs_flat, _attrs, _result, name)
   # _result, = _result
   # return _result
+
+
+
+@tf_export('add')
+def add(x, y, name=None):
+  r"""Returns x + y element-wise.
+
+  *NOTE*: `Add` supports broadcasting. `AddN` does not. More about broadcasting
+  [here](http://docs.scipy.org/doc/numpy/user/basics.broadcasting.html)
+
+  Args:
+    x: A `Tensor`. Must be one of the following types: `bfloat16`, `half`, `float32`, `float64`, `uint8`, `int8`, `int16`, `int32`, `int64`, `complex64`, `complex128`, `string`.
+    y: A `Tensor`. Must have the same type as `x`.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `x`.
+  """
+  a = x.shape
+  b = y.shape
+  if len(a) == len(b):
+    assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1"
+    output_shape = [max(a[i], b[i]) for i in range(len(a))]
+  elif len(a) > len(b):
+    assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "must be either same value or one of them should be 1"
+    output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
+  else:
+    assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1"
+    output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
+  
+  return ops.Tensor(output_shape)   # no dtype
+
+  # _ctx = _context._context
+  # if _ctx is None or not _ctx._eager_context.is_eager:
+  #   _, _, _op = _op_def_lib._apply_op_helper(
+  #       "Add", x=x, y=y, name=name)
+  #   _result = _op.outputs[:]
+  #   _inputs_flat = _op.inputs
+  #   _attrs = ("T", _op.get_attr("T"))
+  #   _execute.record_gradient(
+  #     "Add", _inputs_flat, _attrs, _result, name)
+  #   _result, = _result
+  #   return _result
+
+  # else:
+  #   try:
+  #     _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+  #       _ctx._context_handle, _ctx._eager_context.device_name, "Add", name,
+  #       _ctx._post_execution_callbacks, x, y)
+  #     return _result
+  #   except _core._FallbackException:
+  #     return add_eager_fallback(
+  #         x, y, name=name, ctx=_ctx)
+  #   except _core._NotOkStatusException as e:
+  #     if name is not None:
+  #       message = e.message + " name: " + name
+  #     else:
+  #       message = e.message
+  #     _six.raise_from(_core._status_to_exception(e.code, message), None)

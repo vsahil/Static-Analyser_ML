@@ -286,15 +286,10 @@ class Variable(checkpointable.CheckpointableBase):
   #         ret = expected_shape
   #     return ret
   
-  # def __repr__(self):
-  #   if context.executing_eagerly():
-  #     return "<tf.Variable '%s' shape=%s dtype=%s, numpy=%s>" % (
-  #         self.name, self.get_shape(), self.dtype.name,
-  #         ops.numpy_text(self.read_value(), is_repr=True))
-  #   else:
-  #       # return "tf.Variable %s" %(self._initial_value)
-  #     return "<tf.Variable '%s' shape=%s dtype=%s>" % (
-  #         self.name, self.get_shape(), self.dtype.name)
+  def __repr__(self):
+    return "tf.Variable shape, type = %s" %(self._initial_value)
+    # return "<tf.Variable shape=%s" % (
+        # self.shape)
 
   # def _init_from_args(self,
   #                     initial_value=None,

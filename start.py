@@ -44,6 +44,10 @@ def random_randn(*argv):
     else:
         return [i for i in argv]
 
+def random_randint(*argv):
+    assert(len(argv)) == 3 # corresponding to low, high, output_shape
+    return argv[-1]     # this is the shape of the output
+
 # def matmul(a, b):       # a and b can be multidimensional matrices (a and b are just the shapes)
 #     assert(a[-1] == b[-2])      # last element of the first matches the second last element of second
 #     def checkEqual(L1, L2):
