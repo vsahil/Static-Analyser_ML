@@ -37,6 +37,8 @@ from tensorflow.python.util import compat
 from tensorflow.python.util import nest
 from tensorflow.python.util.tf_export import tf_export
 
+# my
+from tensorflow.python.ops import variables, math_ops
 
 class SessionInterface(object):
   """Base class for implementations of TensorFlow client sessions."""
@@ -565,6 +567,22 @@ class _DeviceAttributes(object):
     )
 
 
+class our_Operation():
+    def __init__(self, input_nodes, ffnc):
+      self.input_nodes = input_nodes
+      self.output = None
+      self.fwd_func = ffnc
+    
+    # Append operation to the list of operations of the default graph
+      ops.our_Graph.get_default_graph().operations.append(self)
+
+    # def forward(self):
+    #   pass
+
+    # def backward(self):
+    #   pass
+
+
 class BaseSession(SessionInterface):
   """A class for interacting with a TensorFlow computation.
 
@@ -597,45 +615,45 @@ class BaseSession(SessionInterface):
     self._closed = False
 
     self._current_version = 0
-    self._extend_lock = threading.Lock()
-    if target is not None:
-      try:
-        self._target = compat.as_bytes(target)
-      except TypeError:
-        raise TypeError('target must be a string, but got %s' % type(target))
-    else:
-      self._target = None
+    # self._extend_lock = threading.Lock()
+    # if target is not None:
+    #   try:
+    #     self._target = compat.as_bytes(target)
+    #   except TypeError:
+    #     raise TypeError('target must be a string, but got %s' % type(target))
+    # else:
+    #   self._target = None
 
-    self._delete_lock = threading.Lock()
-    self._dead_handles = []
+    # self._delete_lock = threading.Lock()
+    # self._dead_handles = []
 
-    if config is not None:
-      if not isinstance(config, config_pb2.ConfigProto):
-        raise TypeError(
-            'config must be a tf.ConfigProto, but got %s' % type(config))
-      self._config = config
-      self._add_shapes = config.graph_options.infer_shapes
-    else:
-      self._config = None
-      self._add_shapes = False
+    # if config is not None:
+    #   if not isinstance(config, config_pb2.ConfigProto):
+    #     raise TypeError(
+    #         'config must be a tf.ConfigProto, but got %s' % type(config))
+    #   self._config = config
+    #   self._add_shapes = config.graph_options.infer_shapes
+    # else:
+    #   self._config = None
+    #   self._add_shapes = False
 
-    # pylint: disable=protected-access
-    # We cache _USE_C_API's value because some test cases will create a session
-    # with _USE_C_API = False but set it back to True before calling close().
-    self._created_with_new_api = ops._USE_C_API
-    # pylint: enable=protected-access
+    # # pylint: disable=protected-access
+    # # We cache _USE_C_API's value because some test cases will create a session
+    # # with _USE_C_API = False but set it back to True before calling close().
+    # self._created_with_new_api = ops._USE_C_API
+    # # pylint: enable=protected-access
 
     self._session = None
-    opts = tf_session.TF_NewSessionOptions(target=self._target, config=config)
-    try:
-      if self._created_with_new_api:
-        # pylint: disable=protected-access
-        self._session = tf_session.TF_NewSession(self._graph._c_graph, opts)
-        # pylint: enable=protected-access
-      else:
-        self._session = tf_session.TF_NewDeprecatedSession(opts)
-    finally:
-      tf_session.TF_DeleteSessionOptions(opts)
+    # opts = tf_session.TF_NewSessionOptions(target=self._target, config=config)
+    # try:
+    #   if self._created_with_new_api:
+    #     # pylint: disable=protected-access
+    #     self._session = tf_session.TF_NewSession(self._graph._c_graph, opts)
+    #     # pylint: enable=protected-access
+    #   else:
+    #     self._session = tf_session.TF_NewDeprecatedSession(opts)
+    # finally:
+    #   tf_session.TF_DeleteSessionOptions(opts)
 
   def list_devices(self):
     """Lists available devices in this session.
@@ -892,15 +910,87 @@ class BaseSession(SessionInterface):
         `Tensor` that doesn't exist.
     """
 
+    # print(self, "delho", type(self), str(self))
     options_ptr = tf_session.TF_NewBufferFromString(compat.as_bytes(options.SerializeToString())) if options else None
     run_metadata_ptr = tf_session.TF_NewBuffer() if run_metadata else None
-
+    # print(self, fetches, "YAHAN")
     assert(options_ptr == run_metadata_ptr == None), "Notimplemented"
     # print(fetches, type(fetches))
+    
+    if not fetches:   # If fetches is none, we return None
+      return
+
+    def topology_sort(operation):
+      ordering = []
+      visited_nodes = set()
+
+      def recursive_helper(node):
+        if isinstance(node, our_Operation):
+          for input_node in node.input_nodes:
+            if input_node not in visited_nodes:
+              recursive_helper(input_node)
+
+        visited_nodes.add(node)
+        ordering.append(node)
+
+      # start recursive depth-first search
+      recursive_helper(operation)
+      print(ordering, "THIS IS ORDERING")
+      return ordering
+
+    def feed_dict_shape_confirm(feed):
+      for key, value in feed.items():
+        if isinstance(key, ops.Tensor):
+          shape_key = key.shape
+        else:
+          print(type(key), "This is the type of key")
+          raise NotImplementedError
+        if isinstance(value, np.ndarray):  
+          shape_value = value.shape   # it is is numpy thing, lets think about other later
+        else:
+          print(type(value), "This is the type of value")
+          raise NotImplementedError
+        assert(len(shape_key) == len(shape_value)), "Shape of %s can't fit in %s"%(shape_value, shape_key)
+        for i,j in zip(shape_key, shape_value):
+          if i != j:
+            raise ValueError("Shape of %s can't fit in %s"%(shape_value, shape_key))
+
+
+    if feed_dict:   # only if feed_dict is not None
+      feed_dict_shape_confirm(feed_dict)    # This is for confirming is the shape of the feed_dict is conformable
+
+    print(fetches, "these are fetches")
+    g = ops.our_Graph.get_default_graph()
+    print(g._collections, "collections ")
+    nodes_sorted = topology_sort(fetches)
+    # print("now going into loop")
+    
+    def f1_var(node):
+      if isinstance(node, variables.Variable):
+        return node._initial_value        # this returns a tensor
+      else:
+        raise NotImplementedError
+
+    for node in nodes_sorted:
+      # if isinstance(node, Placeholder):
+        # node.output = feed_dict[node]
+      if isinstance(node, variables.Variable): # For something like sess.run(var)   or isinstance(node, Constant):
+        node.output = f1_var(node)
+      elif isinstance(node, our_Operation):
+        inputs = [f1_var(node) for node in node.input_nodes]
+        print(inputs, "currently these are the inputs")
+        node.output = node.fwd_func(*inputs)   # pass this as input to that node, here it should be just matmul
+      elif isinstance(node, ops.Tensor):    # If it is of tensor kind, then I am not doing any operation
+        node.output = node.shape      # just returns its shape
+      else:
+        print(type(node))
+        raise NotImplementedError
+
+    return fetches.output
+
+
     try:
-      # print(fetches, feed_dict, "DEKHO")
       result = self._run(None, fetches, feed_dict, options_ptr, run_metadata_ptr)
-      # return result
       if run_metadata:
         proto_data = tf_session.TF_GetBuffer(run_metadata_ptr)
         run_metadata.ParseFromString(compat.as_bytes(proto_data))
@@ -1060,6 +1150,8 @@ class BaseSession(SessionInterface):
     if self._closed:
       raise RuntimeError('Attempted to use a closed Session.')
     if self.graph.version == 0:
+      print("Its empty")
+      return # Do nothing
       raise RuntimeError('The Session graph is empty. Add operations to the graph before calling run().')
 
     # Create request.
@@ -1573,6 +1665,7 @@ class Session(BaseSession):
     if self._default_session_context_manager is None:
       self._default_session_context_manager = self.as_default()
     self._default_graph_context_manager.__enter__()
+    # return    # nothing
     return self._default_session_context_manager.__enter__()
 
   def __exit__(self, exec_type, exec_value, exec_tb):
@@ -1599,7 +1692,7 @@ class Session(BaseSession):
     self._default_session_context_manager = None
     self._default_graph_context_manager = None
 
-    self.close()
+    # self.close()
 
   @staticmethod
   def reset(target, containers=None, config=None):

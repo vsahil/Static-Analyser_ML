@@ -1840,10 +1840,10 @@ def placeholder(dtype, shape=None, name=None):
   """
 
 
-  # if context.executing_eagerly():
-  #   raise RuntimeError("tf.placeholder() is not compatible with eager execution.")
+  if context.executing_eagerly():
+    raise RuntimeError("tf.placeholder() is not compatible with eager execution.")
   # return
-  return ops.Tensor(dtype=dtype, shape=shape) 
+  return ops.Tensor(shape=shape, dtype=dtypes.as_dtype(dtype).base_dtype if dtype else dtype)
   # r = gen_array_ops.placeholder(dtype=dtype, shape=shape, name=name)
   # print(type(r))
   # assert False

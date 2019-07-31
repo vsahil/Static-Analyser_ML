@@ -273,7 +273,7 @@ class Tensor(_TensorLike):
       "__rmatmul__"
   }
 
-  def __init__(self, shape, dtype=None, op=None):
+  def __init__(self, shape=None, dtype=None, op=None):
     """Creates a new `Tensor`.
 
     Args:
@@ -289,10 +289,9 @@ class Tensor(_TensorLike):
       assert(all(isinstance(i, int)) for i in shape), "All shape values must be integers"
     self.shape = shape
     self.dtype = dtype
-  
     # if not isinstance(op, Operation):
     #   raise TypeError("op needs to be an Operation: %s" % op)
-    # self._op = op
+    self._op = op
     # self._value_index = value_index
     # self._dtype = dtypes.as_dtype(dtype)
 
@@ -5596,6 +5595,81 @@ def reset_default_graph():
   _default_graph_stack.reset()
 
 
+
+
+class our_Graph():
+
+  def __init__(self):
+    # if our_Graph.__instance is None:
+      # our_Graph.__instance = our_Graph.__impl()
+    # self.__dict__['_Singleton__instance'] = our_Graph.__instance
+    self.operations = []
+    self.placeholders = []
+    self.variables = []
+    self.constants = []
+    self._collections = {}
+
+
+  # def as_default(self):
+  #   # global _default_graph
+  #   _default_graph = self
+  #   return _default_graph
+
+  def __enter__(self):
+    pass
+  
+  def __exit__(self, exec_type, exec_value, exec_tb):
+    pass
+  
+  def add_to_collection(self, name, value):
+    """Stores `value` in the collection with the given `name`.
+
+    Note that collections are not sets, so it is possible to add a value to
+    a collection several times.
+
+    Args:
+      name: The key for the collection. The `GraphKeys` class
+        contains many standard names for collections.
+      value: The value to add to the collection.
+    """  # pylint: disable=g-doc-exception
+    # _assert_collection_is_ok(name)
+    # self._check_not_finalized()
+    # with self._lock:
+    if name not in self._collections:
+      self._collections[name] = [value]
+    else:
+      self._collections[name].append(value)
+
+  def get_default_graph():
+    return my_graph
+
+  def add_to_collections(self, names, value):
+    """Stores `value` in the collections given by `names`.
+
+    Note that collections are not sets, so it is possible to add a value to
+    a collection several times. This function makes sure that duplicates in
+    `names` are ignored, but it will not check for pre-existing membership of
+    `value` in any of the collections in `names`.
+
+    `names` can be any iterable, but if `names` is a string, it is treated as a
+    single collection name.
+
+    Args:
+      names: The keys for the collections to add to. The `GraphKeys` class
+        contains many standard names for collections.
+      value: The value to add to the collections.
+    """
+    # Make sure names are unique, but treat strings as a single collection name
+    a = get_default_graph() #.add_to_collections(names, value)
+    names = (names,) if isinstance(names, six.string_types) else set(names)
+    # print(a, "this is me", names, value)
+    for name in names:
+      a.add_to_collection(name, value)
+
+
+my_graph = our_Graph()    # creates an instance
+
+
 @tf_export("get_default_graph")
 def get_default_graph():
   """Returns the default graph for the current thread.
@@ -5612,6 +5686,7 @@ def get_default_graph():
   Returns:
     The default `Graph` being used in the current thread.
   """
+  # return our_Graph().as_default()
   return _default_graph_stack.get_default()
 
 
@@ -5810,6 +5885,8 @@ class GraphKeys(object):
   ACTIVATIONS = "activations"
   # Key to collect update_ops
   UPDATE_OPS = "update_ops"
+  # my key for operations
+  OPS = "operations_in_graph"
   # Key to collect losses
   LOSSES = "losses"
   # Key to collect BaseSaverBuilder.SaveableObject instances for checkpointing.

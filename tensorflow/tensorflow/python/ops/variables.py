@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 import traceback
 import inspect
-import sys
+import sys, numpy
 
 from tensorflow.core.framework import attr_value_pb2
 from tensorflow.core.framework import variable_pb2
@@ -39,6 +39,7 @@ from tensorflow.python.util.deprecation import deprecated
 from tensorflow.python.util.tf_export import tf_export
 from tensorflow.python.framework.tensor_shape import TensorShape
 
+from tensorflow.python.client import session
 
 @tf_export("Variable")
 class Variable(checkpointable.CheckpointableBase):
@@ -215,19 +216,8 @@ class Variable(checkpointable.CheckpointableBase):
     @end_compatibility
     """
     # print(expected_shape, initial_value, type(initial_value))
-    assert(isinstance(initial_value, list) or isinstance(initial_value, ops.Tensor))   # so that only lists as passed and not something like tf.Variable(5)
-    if expected_shape == None:
-        if isinstance(initial_value, list):
-          ret = initial_value
-        elif isinstance(initial_value, ops.Tensor):
-          assert(initial_value.shape), "Initial shape can't be None"
-          ret = initial_value.shape     # so that a list is returned in all cases
-    else:
-      ret = expected_shape
-    # print(initial_value, initial_value.shape)
-    self.shape = ret    # no other attribute, just this
-
-    self._initial_value = ops.Tensor(self.shape, dtypes.as_dtype(dtype).base_dtype if dtype else dtype)   # only convert if not None
+    # assert(isinstance(initial_value, list) or isinstance(initial_value, ops.Tensor))   # so that only lists as passed and not something like tf.Variable(5)
+    
     # print(initial_value, initial_value.shape, self._initial_value, "dekhona")
     # self._initial_value = ops.convert_to_tensor(initial_value, name="initial_value", dtype=dtype)
     # print(type(self._initial_value), "HERE")
@@ -253,216 +243,204 @@ class Variable(checkpointable.CheckpointableBase):
     #   self._init_from_proto(variable_def, import_scope=import_scope)
     # else:
     #   # Create from initial_value.
-    #   self._init_from_args(
-    #       initial_value=initial_value,
-    #       trainable=trainable,
-    #       collections=collections,
-    #       validate_shape=validate_shape,
-    #       caching_device=caching_device,
-    #       name=name,
-    #       dtype=dtype,
-    #       expected_shape=expected_shape,
-    #       constraint=constraint)
+    self._init_from_args(
+        initial_value=initial_value,
+        trainable=trainable,
+        collections=collections,
+        validate_shape=validate_shape,
+        caching_device=caching_device,
+        name=name,
+        dtype=dtype,
+        expected_shape=expected_shape,
+        constraint=constraint)
       # print(here, "over here", type(here))
     # print(sys._getframe().f_back.f_code.co_name)
 
-  # def __new__(cls,
-  #              initial_value=None,
-  #              trainable=True,
-  #              collections=None,
-  #              validate_shape=True,
-  #              caching_device=None,
-  #              name=None,
-  #              variable_def=None,
-  #              dtype=None,
-  #              expected_shape=None,
-  #              import_scope=None,
-  #              constraint=None):
-  #     if expected_shape == None:
-  #         if initial_value == None:
-  #           print("Empty initial value")
-  #           assert False
-  #         else:
-  #           ret = initial_value
-  #     else:
-  #         ret = expected_shape
-  #     return ret
-  
   def __repr__(self):
     return "<tf.Variable shape = %s, type = %s>" %(self._initial_value.shape, self._initial_value.dtype)
     # return "<tf.Variable shape=%s" % (
         # self.shape)
 
-  # def _init_from_args(self,
-  #                     initial_value=None,
-  #                     trainable=True,
-  #                     collections=None,
-  #                     validate_shape=True,
-  #                     caching_device=None,
-  #                     name=None,
-  #                     dtype=None,
-  #                     expected_shape=None,
-  #                     constraint=None):
-  #   """Creates a new variable from arguments.
+  def _init_from_args(self,
+                      initial_value=None,
+                      trainable=True,
+                      collections=None,
+                      validate_shape=True,
+                      caching_device=None,
+                      name=None,
+                      dtype=None,
+                      expected_shape=None,
+                      constraint=None):
+    """Creates a new variable from arguments.
 
-  #   Args:
-  #     initial_value: A `Tensor`, or Python object convertible to a `Tensor`,
-  #       which is the initial value for the Variable. The initial value must have
-  #       a shape specified unless `validate_shape` is set to False. Can also be a
-  #       callable with no argument that returns the initial value when called.
-  #       (Note that initializer functions from init_ops.py must first be bound
-  #        to a shape before being used here.)
-  #     trainable: If `True`, the default, also adds the variable to the graph
-  #       collection `GraphKeys.TRAINABLE_VARIABLES`. This collection is used as
-  #       the default list of variables to use by the `Optimizer` classes.
-  #     collections: List of graph collections keys. The new variable is added to
-  #       these collections. Defaults to `[GraphKeys.GLOBAL_VARIABLES]`.
-  #     validate_shape: If `False`, allows the variable to be initialized with a
-  #       value of unknown shape. If `True`, the default, the shape of
-  #       `initial_value` must be known.
-  #     caching_device: Optional device string or function describing where the
-  #       Variable should be cached for reading.  Defaults to the Variable's
-  #       device.  If not `None`, caches on another device.  Typical use is to
-  #       cache on the device where the Ops using the Variable reside, to
-  #       deduplicate copying through `Switch` and other conditional statements.
-  #     name: Optional name for the variable. Defaults to `'Variable'` and gets
-  #       uniquified automatically.
-  #     dtype: If set, initial_value will be converted to the given type.
-  #       If None, either the datatype will be kept (if initial_value is
-  #      a Tensor) or float32 will be used (if it is a Python object convertible
-  #      to a Tensor).
-  #     expected_shape: Deprecated. Ignored.
-  #     constraint: An optional projection function to be applied to the variable
-  #       after being updated by an `Optimizer` (e.g. used to implement norm
-  #       constraints or value constraints for layer weights). The function must
-  #       take as input the unprojected Tensor representing the value of the
-  #       variable and return the Tensor for the projected value
-  #       (which must have the same shape). Constraints are not safe to
-  #       use when doing asynchronous distributed training.
+    Args:
+      initial_value: A `Tensor`, or Python object convertible to a `Tensor`,
+        which is the initial value for the Variable. The initial value must have
+        a shape specified unless `validate_shape` is set to False. Can also be a
+        callable with no argument that returns the initial value when called.
+        (Note that initializer functions from init_ops.py must first be bound
+         to a shape before being used here.)
+      trainable: If `True`, the default, also adds the variable to the graph
+        collection `GraphKeys.TRAINABLE_VARIABLES`. This collection is used as
+        the default list of variables to use by the `Optimizer` classes.
+      collections: List of graph collections keys. The new variable is added to
+        these collections. Defaults to `[GraphKeys.GLOBAL_VARIABLES]`.
+      validate_shape: If `False`, allows the variable to be initialized with a
+        value of unknown shape. If `True`, the default, the shape of
+        `initial_value` must be known.
+      caching_device: Optional device string or function describing where the
+        Variable should be cached for reading.  Defaults to the Variable's
+        device.  If not `None`, caches on another device.  Typical use is to
+        cache on the device where the Ops using the Variable reside, to
+        deduplicate copying through `Switch` and other conditional statements.
+      name: Optional name for the variable. Defaults to `'Variable'` and gets
+        uniquified automatically.
+      dtype: If set, initial_value will be converted to the given type.
+        If None, either the datatype will be kept (if initial_value is
+       a Tensor) or float32 will be used (if it is a Python object convertible
+       to a Tensor).
+      expected_shape: Deprecated. Ignored.
+      constraint: An optional projection function to be applied to the variable
+        after being updated by an `Optimizer` (e.g. used to implement norm
+        constraints or value constraints for layer weights). The function must
+        take as input the unprojected Tensor representing the value of the
+        variable and return the Tensor for the projected value
+        (which must have the same shape). Constraints are not safe to
+        use when doing asynchronous distributed training.
 
-  #   Raises:
-  #     ValueError: If the initial value is not specified, or does not have a
-  #       shape and `validate_shape` is `True`.
-  #     RuntimeError: If lifted into the eager context.
-  #   """
+    Raises:
+      ValueError: If the initial value is not specified, or does not have a
+        shape and `validate_shape` is `True`.
+      RuntimeError: If lifted into the eager context.
+    """  
+    _ = expected_shape
+    if initial_value is None:
+      raise ValueError("initial_value must be specified.")
+    # init_from_fn = callable(initial_value)
+    # print(init_from_fn, "dekho"); assert False
+    
+    if expected_shape == None:
+        if isinstance(initial_value, list):
+          ret = initial_value
+        elif isinstance(initial_value, ops.Tensor):
+          assert(initial_value.shape), "Initial shape can't be None"
+          ret = initial_value.shape     # so that a list is returned in all cases
+        elif isinstance(initial_value, numpy.ndarray):
+          ret = list(initial_value.shape)     # as this is a tuple
+        else:
+          raise NotImplementedError("Not implemented for any other class %"%(type(initial_value)))
+    else:
+      ret = expected_shape
+    # print(initial_value, initial_value.shape)
+    self.shape = ret    # no other attribute, just this
+    self._initial_value = ops.Tensor(self.shape, dtype=dtypes.as_dtype(dtype).base_dtype if dtype else dtype)   # only convert if not None
 
-  #   # if expected_shape == None:
-  #   #     if initial_value == None:
-  #   #         print("Empty initial value")
-  #   #         assert False
-  #   #     else:
-  #   #         self._initial_value = initial_value
-  #   # else:
-  #   #     self._initial_value = expected_shape
-  #   # print(initial_value, self._initial_value, type(initial_value), type(self._initial_value), "hello")
-  #   # return self._initial_value
-  
-  #   _ = expected_shape
-  #   if initial_value is None:
-  #     raise ValueError("initial_value must be specified.")
-  #   init_from_fn = callable(initial_value)
+    if collections is None:
+      collections = [ops.GraphKeys.GLOBAL_VARIABLES]
+    gph = ops.our_Graph.get_default_graph()
+    gph.add_to_collections(collections, self)     # currently I see no benefit of adding it to the graph, I anyway get it from the operation.
 
-  #   if collections is None:
-  #     collections = [ops.GraphKeys.GLOBAL_VARIABLES]
-  #   if not isinstance(collections, (list, tuple, set)):
-  #     raise ValueError(
-  #         "collections argument to Variable constructor must be a list, tuple, "
-  #         "or set. Got %s of type %s" % (collections, type(collections)))
-  #   if constraint is not None and not callable(constraint):
-  #     raise ValueError("The `constraint` argument must be a callable.")
+    # if not isinstance(collections, (list, tuple, set)):
+      # raise ValueError(
+      #     "collections argument to Variable constructor must be a list, tuple, "
+      #     "or set. Got %s of type %s" % (collections, type(collections)))
+    # if constraint is not None and not callable(constraint):
+      # raise ValueError("The `constraint` argument must be a callable.")
 
-  #   # Store the graph key so optimizers know how to only retrieve variables from
-  #   # this graph.
-  #   self._graph_key = ops.get_default_graph()._graph_key  # pylint: disable=protected-access
-  #   if isinstance(initial_value, checkpointable.CheckpointInitialValue):
-  #     self._maybe_initialize_checkpointable()
-  #     self._update_uid = initial_value.checkpoint_position.restore_uid
-  #     initial_value = initial_value.wrapped_value
+    # Store the graph key so optimizers know how to only retrieve variables from
+    # this graph.
+    # self._graph_key = ops.get_default_graph()._graph_key  # pylint: disable=protected-access
+    # if isinstance(initial_value, checkpointable.CheckpointInitialValue):
+    #   self._maybe_initialize_checkpointable()
+    #   self._update_uid = initial_value.checkpoint_position.restore_uid
+    #   initial_value = initial_value.wrapped_value
 
-  #   if trainable and ops.GraphKeys.TRAINABLE_VARIABLES not in collections:
-  #     collections = list(collections) + [ops.GraphKeys.TRAINABLE_VARIABLES]
-  #   with ops.init_scope():
-  #     # Ensure that we weren't lifted into the eager context.
-  #     if context.executing_eagerly():
-  #       raise RuntimeError(
-  #           "tf.Variable not supported when eager execution is enabled. "
-  #           "Please use tf.contrib.eager.Variable instead")
-  #     with ops.name_scope(name, "Variable", [] if init_from_fn else
-  #                         [initial_value]) as name:
+    # no need for this to be trainable
+    # if trainable and ops.GraphKeys.TRAINABLE_VARIABLES not in collections:
+      # collections = list(collections) + [ops.GraphKeys.TRAINABLE_VARIABLES]
+    # with ops.init_scope():
+      # Ensure that we weren't lifted into the eager context.
+      # if context.executing_eagerly():
+        # raise RuntimeError(
+            # "tf.Variable not supported when eager execution is enabled. "
+            # "Please use tf.contrib.eager.Variable instead")
+      # with ops.name_scope(name, "Variable", [] if init_from_fn else
+                          # [initial_value]) as name:
 
-  #       if init_from_fn:
-  #         # Use attr_scope and device(None) to simulate the behavior of
-  #         # colocate_with when the variable we want to colocate with doesn't
-  #         # yet exist.
-  #         true_name = ops._name_from_scope_name(name)  # pylint: disable=protected-access
-  #         attr = attr_value_pb2.AttrValue(
-  #             list=attr_value_pb2.AttrValue.ListValue(
-  #                 s=[compat.as_bytes("loc:@%s" % true_name)]))
-  #         # pylint: disable=protected-access
-  #         with ops.get_default_graph()._attr_scope({"_class": attr}):
-  #           with ops.name_scope("Initializer"), ops.device(None):
-  #             self._initial_value = ops.convert_to_tensor(
-  #                 initial_value(), name="initial_value", dtype=dtype)
-  #             shape = (self._initial_value.get_shape()
-  #                      if validate_shape else tensor_shape.unknown_shape())
-  #           self._variable = state_ops.variable_op_v2(
-  #               shape,
-  #               self._initial_value.dtype.base_dtype,
-  #               name=name)
-  #         # pylint: enable=protected-access
+        # if init_from_fn:
+        #   # Use attr_scope and device(None) to simulate the behavior of
+        #   # colocate_with when the variable we want to colocate with doesn't
+        #   # yet exist.
+        #   raise NotImplementedError("Not implemented this part")
+        #   true_name = ops._name_from_scope_name(name)  # pylint: disable=protected-access
+        #   attr = attr_value_pb2.AttrValue(
+        #       list=attr_value_pb2.AttrValue.ListValue(
+        #           s=[compat.as_bytes("loc:@%s" % true_name)]))
+        #   # pylint: disable=protected-access
+        #   with ops.get_default_graph()._attr_scope({"_class": attr}):
+        #     with ops.name_scope("Initializer"), ops.device(None):
+        #       self._initial_value = ops.convert_to_tensor(
+        #           initial_value(), name="initial_value", dtype=dtype)
+        #       shape = (self._initial_value.get_shape()
+        #                if validate_shape else tensor_shape.unknown_shape())
+        #     self._variable = state_ops.variable_op_v2(
+        #         shape,
+        #         self._initial_value.dtype.base_dtype,
+        #         name=name)
+        #   # pylint: enable=protected-access
 
-  #       # Or get the initial value from a Tensor or Python object.
-  #       else:
-  #         self._initial_value = ops.convert_to_tensor(
-  #             initial_value, name="initial_value", dtype=dtype)
-  #         # pylint: disable=protected-access
-  #         if self._initial_value.op._get_control_flow_context() is not None:
-  #           raise ValueError(
-  #               "Initializer for variable %s is from inside a control-flow "
-  #               "construct, such as a loop or conditional. When creating a "
-  #               "variable inside a loop or conditional, use a lambda as the "
-  #               "initializer." % name)
-  #         # pylint: enable=protected-access
-  #         shape = (self._initial_value.get_shape()
-  #                  if validate_shape else tensor_shape.unknown_shape())
-  #         # In this case, the variable op can't be created until after the
-  #         # initial_value has been converted to a Tensor with a known type.
-  #         self._variable = state_ops.variable_op_v2(
-  #             shape,
-  #             self._initial_value.dtype.base_dtype,
-  #             name=name)
+        # # Or get the initial value from a Tensor or Python object.
+        # else:
+          # self._initial_value = ops.Tensor(self.shape, dtype=dtypes.as_dtype(dtype).base_dtype if dtype else dtype)          
+          # pylint: disable=protected-access
+          # if self._initial_value.op._get_control_flow_context() is not None:
+          #   raise ValueError(
+          #       "Initializer for variable %s is from inside a control-flow "
+          #       "construct, such as a loop or conditional. When creating a "
+          #       "variable inside a loop or conditional, use a lambda as the "
+          #       "initializer." % name)
+          # pylint: enable=protected-access
+          # shape = (self._initial_value.get_shape()
+          #          if validate_shape else tensor_shape.unknown_shape())
+          # In this case, the variable op can't be created until after the
+          # initial_value has been converted to a Tensor with a known type.
+          # self._variable = state_ops.variable_op_v2(
+          #     shape,
+          #     self._initial_value.dtype.base_dtype,
+          #     name=name)
 
-  #       # Manually overrides the variable's shape with the initial value's.
-  #       if validate_shape:
-  #         initial_value_shape = self._initial_value.get_shape()
-  #         if not initial_value_shape.is_fully_defined():
-  #           raise ValueError("initial_value must have a shape specified: %s" %
-  #                            self._initial_value)
+        # Manually overrides the variable's shape with the initial value's.
+        # if validate_shape:
+          # initial_value_shape = self._initial_value.get_shape()
+          # if not initial_value_shape.is_fully_defined():
+          #   raise ValueError("initial_value must have a shape specified: %s" %
+          #                    self._initial_value)
 
-  #       # If 'initial_value' makes use of other variables, make sure we don't
-  #       # have an issue if these other variables aren't initialized first by
-  #       # using their initialized_value() method.
-  #       self._initializer_op = state_ops.assign(
-  #           self._variable,
-  #           self._try_guard_against_uninitialized_dependencies(
-  #               self._initial_value),
-  #           validate_shape=validate_shape).op
+        # If 'initial_value' makes use of other variables, make sure we don't
+        # have an issue if these other variables aren't initialized first by
+        # using their initialized_value() method.
+        # self._initializer_op = state_ops.assign(
+        #     self._variable,
+        #     self._try_guard_against_uninitialized_dependencies(
+        #         self._initial_value),
+        #     validate_shape=validate_shape).op
 
-  #       # TODO(vrv): Change this class to not take caching_device, but
-  #       # to take the op to colocate the snapshot with, so we can use
-  #       # colocation rather than devices.
-  #       if caching_device is not None:
-  #         with ops.device(caching_device):
-  #           self._snapshot = array_ops.identity(self._variable, name="read")
-  #       else:
-  #         with ops.colocate_with(self._variable.op):
-  #           self._snapshot = array_ops.identity(self._variable, name="read")
-  #     ops.add_to_collections(collections, self)
+        # TODO(vrv): Change this class to not take caching_device, but
+        # to take the op to colocate the snapshot with, so we can use
+        # colocation rather than devices.
+        # if caching_device is not None:
+        #   with ops.device(caching_device):
+        #     self._snapshot = array_ops.identity(self._variable, name="read")
+        # else:
+        #   with ops.colocate_with(self._variable.op):
+        #     self._snapshot = array_ops.identity(self._variable, name="read")
+      
+      # ops.add_to_collections(collections, self)
 
-  #   self._caching_device = caching_device
-  #   self._save_slice_info = None
-  #   self._constraint = constraint
-  #   # print(self.get_shape(), type(self.get_shape()), "hello")
+    # self._caching_device = caching_device
+    # self._save_slice_info = None
+    # self._constraint = constraint
+    # print(self.get_shape(), type(self.get_shape()), "hello")
 
   # def _init_from_proto(self, variable_def, import_scope=None):
   #   """Recreates the Variable object from a `VariableDef` protocol buffer.
@@ -1639,6 +1617,7 @@ def global_variables_initializer():
   Returns:
     An Op that initializes global variables in the graph.
   """
+  return      # do a none here
   if context.executing_eagerly():
     return control_flow_ops.no_op(name="global_variables_initializer")
   return variables_initializer(global_variables())

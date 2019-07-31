@@ -1990,6 +1990,7 @@ def trace(x, name=None):
     x = ops.convert_to_tensor(x, name="x")
     return reduce_sum(array_ops.matrix_diag_part(x), [-1], name=name)
 
+from tensorflow.python.client.session import our_Operation as oo
 
 @tf_export("matmul")
 def matmul(a,
@@ -2102,7 +2103,7 @@ def matmul(a,
       are both set to True.
   """
   assert(transpose_a == transpose_b == adjoint_a == adjoint_b == a_is_sparse == b_is_sparse == False)    # as we have not yet implemented them
-  assert(len(a.shape) == len(b.shape) == 2), "These are the minimum required shape dimensions"
+  assert(len(a.shape) >= 2 and len(b.shape) >= 2), "These are the minimum required shape dimensions"
   assert (a.shape[-1] == b.shape[-2]), "Not conformable!"      # last element of the first matches the second last element of second
   def checkConformability(L1, L2):
       return len(L1) == len(L2) and sorted(L1) == sorted(L2)
@@ -2111,12 +2112,30 @@ def matmul(a,
   # if isinstance(a, variables.Variable) and isinstance(b, variables.Variable):    # assert the types of a and b you wanna use for now
     # return variables.Variable(result_shape)
   # elif isinstance(a, ops.Tensor) and isinstance(b, variables.Variable):
-  return ops.Tensor(result_shape)   # No_dtype
-  # else:
-    # print(type(a), type(b))
-    # assert False, "TypeError : above"
   
+  # a = gen_math_ops.batch_mat_mul(a, b, adj_x=adjoint_a, adj_y=adjoint_b, name=name)
+  # print(a, "dekho")
+  def forward(a, b):    # here a and b are just lists
+    # assert(isinstance(a, list) and isinstance(b, list))
+    result_shape = [*a.shape[:-2], a.shape[-2], b.shape[-1]]
+    return ops.Tensor(result_shape)   # it returns another Tensor
+    # return [*a[:-2], a[-2], b[-1]]
+
+  our = oo([a, b], ffnc=forward)   # create a new operation object each time
+  final = our
   
+  delte = True
+  if delte:
+    collections = [ops.GraphKeys.OPS]
+    # self._graph_key = ops.get_default_graph()._graph_key
+    print(collections, "SEE INSIDE MATMUL", final)    # adds to default graph
+    gph = ops.our_Graph.get_default_graph()
+    gph.add_to_collections(collections, final)
+    # print(our.input_nodes)
+  
+  return final
+  
+
   # with ops.name_scope(name, "MatMul", [a, b]) as name:
   #   if transpose_a and adjoint_a:
   #     raise ValueError("Only one of transpose_a and adjoint_a can be True.")
