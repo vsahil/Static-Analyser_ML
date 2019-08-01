@@ -59,6 +59,8 @@ from tensorflow.python.util import decorator_utils
 from tensorflow.python.util import tf_contextlib
 from tensorflow.python.util.tf_export import tf_export
 
+# my
+# from tensorflow.python.ops.variables import Variable
 # from tensorflow.python.framework.tensor_shape import TensorShape as my_ts
 # Temporary global switch determining if we should enable the work-in-progress
 # calls to the C API. Currently disabled by default but can be manually enabled
@@ -194,6 +196,7 @@ class _TensorLike(object):
   """Internal cls for grouping Tensor, SparseTensor, ..., for is_instance."""
   pass
 
+# from tensorflow.python.client.session import our_Operation as oo
 
 @tf_export("Tensor")
 class Tensor(_TensorLike):
@@ -315,22 +318,35 @@ class Tensor(_TensorLike):
     #   self._handle_data = None
 
     # self._id = uid()
-
   
   def __add__(self, other):
-      # print(self, type(self), type(other), self.shape, other.shape, "YEAH RADD INSIDE TENSOR CLASS")
-      # initially other was of type Variable, but here it is of type tensor and you will see only this, 
-      assert(len(other.shape) == 1), "only doing it for the bias in NN case"
-      assert(self.shape[-1] == other.shape[0]), "last dimension should be same"
-      return self     # this is output shape
-      # no change in shape, remains same
-      # return 
-      # assert False
+    # print(self, type(self), type(other), self.shape, other.shape, "YEAH RADD INSIDE TENSOR CLASS")
+    # initially other was of type Variable, but here it is of type tensor and you will see only this, 
+    assert(len(other.shape) == 1), "only doing it for the bias in NN case"
+    assert(self.shape[-1] == other.shape[0]), "last dimension should be same"
+    return self     # this is output shape
+    # no change in shape, remains same
   
-  def __mul__(self, other):
-      assert(self.shape == other.shape), "for multiplication shape must be same"
-      return self    # this is output shape
+  def __radd__(self, other):
+    # in this case the other guy is object of class our_operation, for instance it can be matmul, therefore the shape remains same as of other
+    # assert(len(other.shape) == 1), "only doing it for the bias in NN case"
+    shp = other.fwd_func(*other.input_nodes).shape
+    # print(shp, "see the shp", self.shape)
+    assert(shp[-1] == self.shape[0]), "last dimension should be same"
+    return other     # this is output shape
   
+  # def __mul__(self, other):
+  #   # print(self, other)
+  #   if isinstance(self, Tensor) and isinstance(other, Tensor):
+  #     shape1 = self.shape; shape2 = other.shape
+  #   # elif isinstance(self, (Tensor, Variable)) and isinstance(other, oo):
+  #     # shape1 = self.shape; shape2 = other.fwd_func(*other.input_nodes).shape
+  #   else:
+  #     print(type(self), type(other), "These are the types of self and other")
+  #     raise NotImplementedError
+  #   assert(shape1 == shape2), "for multiplication shape must be same"
+  #   return other    # this is output shape, irrespectively you can return other, right
+
   def __neg__(self):
     return self    # this is output shape  
   
@@ -513,7 +529,6 @@ class Tensor(_TensorLike):
 
   def set_shape(self, shape):
     """Updates the shape of this tensor.
-    # I AM USING ONLY MY CODE, NOT THE TF CODE, ALTHOUGH IT MIGHT BE EASIER TO USE IT, BECAUSE THEN I MIGHT BREAK THIS CODE LATER
     This method can be called multiple times, and will merge the given
     `shape` with the current shape of this tensor. It can be used to
     provide additional information about the shape of this tensor that
@@ -543,17 +558,10 @@ class Tensor(_TensorLike):
       ValueError: If `shape` is not compatible with the current shape of
         this tensor.
     """
-    # print(self.shape, type(self.shape))
-    # other = tensor_shape.as_shape(shape)
     other = tensor_shape.TensorShape(shape)   # now this is a tensorshape object
-    # print(other, "hello1 this is other")
     other.assert_same_rank(self.shape)    # I this test is passed, then the new object shape is of the new shape thing, right
-    # print(self.shape, "this is old")
-    self.shape = other    # If assert is pased, you can use this
-    # print(self.shape, "this is updated")
-    # return    # I have updated shape
-    # self._c_api_shape().assert_same_rank(shape)
-
+    self.shape = shape    # don't use tensor_shape for shape, just a list, that is only for checking if conversion is alowed 
+  
     # my_ts.assert_same_rank(other)
     # if self._dims is None:
     #   return other
@@ -5596,19 +5604,44 @@ def reset_default_graph():
 
 
 
+class our_Operation():
+    def __init__(self, input_nodes, ffnc, name):
+      self.input_nodes = input_nodes
+      self.output = None
+      self.fwd_func = ffnc
+      self.name_op = name   # name of operation is good
+    
+      our_Graph.get_default_graph().operations.append(self)
+
+    def __rmul__(self, other):
+      # print(self, other, "me sir")
+      if isinstance(other, Tensor):
+        shape1 = self.fwd_func(*self.input_nodes).shape; shape2 = other.shape
+        # print(self.input_nodes)
+      # elif isinstance(self, (Tensor, Variable)) and isinstance(other, oo):
+        # shape1 = self.shape; shape2 = other.fwd_func(*other.input_nodes).shape
+      else:
+        print(type(self), type(other), "These are the types of self and other")
+        raise NotImplementedError
+      assert(shape1 == shape2), "for multiplication shape must be same %s %s"%(shape1, shape2)
+      return self
+
+    def __neg__(self):
+      return self    # this is output shape  
+
+    def __repr__(self):
+      return "<Operation object {}>".format(self.name_op) #, [i.name_op if isinstance(i, our_Operation) else i for i in self.input_nodes])
+    
+
 
 class our_Graph():
 
   def __init__(self):
-    # if our_Graph.__instance is None:
-      # our_Graph.__instance = our_Graph.__impl()
-    # self.__dict__['_Singleton__instance'] = our_Graph.__instance
     self.operations = []
     self.placeholders = []
     self.variables = []
     self.constants = []
-    self._collections = {}
-
+    self.identity_placeholders = []
 
   # def as_default(self):
   #   # global _default_graph

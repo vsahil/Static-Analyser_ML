@@ -1733,9 +1733,14 @@ def softmax(logits, axis=None, name=None, dim=None):
     InvalidArgumentError: if `logits` is empty or `axis` is beyond the last
       dimension of `logits`.
   """
-  assert(logits), "Checks for non-empty lists"
+  # assert(logits), "Checks for non-empty lists"
+  if isinstance(logits, ops.our_Operation):   # the input of this must be an our_Operation object
+    logits.name_op = logits.name_op + "_+_nn.softmax"
+    shap = logits.fwd_func(*logits.input_nodes).shape
+  else:
+    shap = logits.shape
   if axis:
-    assert(axis < len(logits.shape)), "axis is beyond the last dimension of logits"
+    assert(axis < len(shap)), "axis is beyond the last dimension of logits"
   return logits   # Returns: A `Tensor`. Has the same type and shape as `logits`.
 
   # axis = deprecation.deprecated_argument_lookup("axis", axis, "dim", dim)
@@ -2145,14 +2150,28 @@ def max_pool(value, ksize, strides, padding, data_format="NHWC", name=None):
 
   # assert(len(value.shape) == 4 and len(ksize.shape) == 1), "Value must be 4-D and ksize must be 1-D"    # trivial
   # assert(all(isinstance(i, int) for i in strides)), "Only integer accepted as strides"    # trivial
+  # All these asserts are input non-dependent and hence do not get copied in forward
   assert(padding == "SAME")
   assert(data_format == "NHWC")
   assert(strides[0] == strides[3] == 1 and strides[1] == strides[2] == ksize[1] == ksize[2])
   assert(ksize[0] == ksize[3] == 1)
-  a = math.ceil(value.shape[1]/strides[1])
-  b = math.ceil(value.shape[2]/strides[2])
-  output_shape = [value.shape[0], a, b, value.shape[3]]
-  return ops.Tensor(output_shape)    # No dtype
+  
+  def forward(value):
+    if isinstance(value, ops.Tensor):
+      shap = value.shape
+    elif isinstance(value, ops.our_Operation):
+      shap = value.fwd_func(*value.input_nodes).shape   # always make our_Operation return a tensor or variable
+    else:
+      print("<This is input:{} and its type:{}>".format(value, type(value))); raise NotImplementedError
+    a = math.ceil(shap[1]/strides[1])    # strides are accessible without passing as well
+    b = math.ceil(shap[2]/strides[2])
+    output_shape = [shap[0], a, b, shap[3]]
+    return ops.Tensor(output_shape)    # No dtype
+
+  this_operation = ops.our_Operation([value], ffnc=forward, name="max_pool")   # create a new operation object each time
+  gph = ops.our_Graph.get_default_graph()
+  gph.operations.append(this_operation)
+  return this_operation
 
   # with ops.name_scope(name, "MaxPool", [value]) as name:
   #   value = ops.convert_to_tensor(value, name="input")
@@ -2318,6 +2337,8 @@ def dropout(x, keep_prob, noise_shape=None, seed=None, name=None):  # pylint: di
   # assert(all(1>=i>=0) for i in keep_prob), "probabilities can be only between 0 and 1"
   # assert(isinstance(i, float) for i in x), "x must be a floating point tensor"
   assert(noise_shape == None), "If its shape is more complex, then this won't work"
+  if isinstance(x, ops.our_Operation):   # the input of this must be an our_Operation object
+    x.name_op = x.name_op + "_+_nn.dropout"
   return x      # no change in shape, just returning this
 
   # with ops.name_scope(name, "dropout", [x]) as name:

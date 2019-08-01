@@ -327,18 +327,20 @@ class Variable(checkpointable.CheckpointableBase):
           ret = initial_value.shape     # so that a list is returned in all cases
         elif isinstance(initial_value, numpy.ndarray):
           ret = list(initial_value.shape)     # as this is a tuple
+        elif isinstance(initial_value, ops.our_Operation):
+          ret = initial_value.fwd_func(*initial_value.input_nodes).shape
         else:
-          raise NotImplementedError("Not implemented for any other class %"%(type(initial_value)))
+          raise NotImplementedError("Not implemented for any other class {}".format(type(initial_value)))
     else:
       ret = expected_shape
     # print(initial_value, initial_value.shape)
     self.shape = ret    # no other attribute, just this
     self._initial_value = ops.Tensor(self.shape, dtype=dtypes.as_dtype(dtype).base_dtype if dtype else dtype)   # only convert if not None
 
-    if collections is None:
-      collections = [ops.GraphKeys.GLOBAL_VARIABLES]
+    # if collections is None:
+      # collections = [ops.GraphKeys.GLOBAL_VARIABLES]
     gph = ops.our_Graph.get_default_graph()
-    gph.add_to_collections(collections, self)     # currently I see no benefit of adding it to the graph, I anyway get it from the operation.
+    gph.variables.append(self)     #   add it to variables in graph currently I see no benefit of adding it to the graph, I anyway get it from the operation.
 
     # if not isinstance(collections, (list, tuple, set)):
       # raise ValueError(

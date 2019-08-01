@@ -190,7 +190,7 @@ tf_export("arg_min")(arg_min)
 _resource_variable_type = None
 
 # my
-# from tensorflow.python.client.session import our_Operation as oo
+from tensorflow.python.client.session import our_Operation as oo
 
 def _set_doc(doc):
 
@@ -219,26 +219,18 @@ def argmax(input,
     axis = dimension
   elif axis is None:
     axis = 0
-  
-  def forward(input_t):   # axis is not a variable, therefore not passing it here
-    if isinstance(input_t, ops.our_Operation):
-      shap = input_t.fwd_func(*input_t.input_nodes).shape
-    else:
-      shap = input_t.shape
-    new_shape = shap[:]
+  def forward(input_t, axis):
+    shp = input_t.fwd_func(*input_t.input_nodes).shape
+    new_shape = shp[:]
     new_shape.pop(axis)
     return ops.Tensor(new_shape, output_type)
     
-  # if isinstance(input, ops.our_Operation):
-  this_operation = ops.our_Operation([input], ffnc=forward, name="argmax") # THIS IS A LIST, OKAY.  ops.Tensor(1, dtype = input_tensor.dtype)
-  gph = ops.our_Graph.get_default_graph()
-  gph.operations.append(this_operation)
-  return this_operation
-  
-  # else:   # irrespective of the input type this will return an operation because argmax is an operation
-  #   new_shape = input.shape[:]    # create a deepcopy
-  #   new_shape.pop(axis)   # remove that axis, remaining is the correct shape, deleting doesn't affect the original list
-  #   return ops.Tensor(new_shape, output_type)
+  if isinstance(input, oo):
+    return oo([input, axis], ffnc=forward) # THIS IS A LIST, OKAY.  ops.Tensor(1, dtype = input_tensor.dtype)
+  else:
+    new_shape = input.shape[:]    # create a deepcopy
+    new_shape.pop(axis)   # remove that axis, remaining is the correct shape, deleting doesn't affect the original list
+    return ops.Tensor(new_shape, output_type)
   
   # return gen_math_ops.arg_max(input, axis, name=name, output_type=output_type)
 
@@ -818,20 +810,16 @@ def cast(x, dtype, name=None):
   Raises:
     TypeError: If `x` cannot be cast to the `dtype`.
   """
-  # if isinstance(x, ops.Tensor):
-  #   return ops.Tensor(x.shape, dtype)   # return a tensor of same shape and the desired dtype
+  if isinstance(x, ops.Tensor):
+    return ops.Tensor(x.shape, dtype)   # return a tensor of same shape and the desired dtype
   
-  # elif isinstance(x, ops.our_Operation):
-  #   return x    # return the same object, basically like NOP
-  # elif isinstance(x, int):
-  #   return x      # this is already shape in that case.
+  elif isinstance(x, oo):
+    return x    # return the same object, basically like NOP
+  elif isinstance(x, int):
+    return x      # this is already shape in that case.
   
-  # else:
-  #   raise NotImplementedError("Only tensor or integer accepted at the moment %s", type(x))
-
-  if isinstance(x, ops.our_Operation):   # the input of this must be an our_Operation object
-    x.name_op = x.name_op + "_+_cast"
-  return x
+  else:
+    raise NotImplementedError("Only tensor or integer accepted at the moment %s", type(x))
 
   # base_type = dtypes.as_dtype(dtype).base_dtype
   # with ops.name_scope(name, "Cast", [x]) as name:
@@ -1470,31 +1458,40 @@ def reduce_sum(input_tensor,
   int64 while tensorflow returns the same dtype as the input.
   @end_compatibility
   """
-  keepdims = deprecation.deprecated_argument_lookup("keepdims", keepdims, "keep_dims", keep_dims)
+  keepdims = deprecation.deprecated_argument_lookup("keepdims", keepdims,
+                                                    "keep_dims", keep_dims)
   if keepdims is None:
     keepdims = False
   assert(not(keepdims) and not(reduction_indices)), "current implementation"
   if axis:
     raise NotImplementedError
     assert(all(len(input_tensor.shape) > i > -len(input_tensor.shape)) for i in axis), "Must be in the range `[-rank(input_tensor), rank(input_tensor))`"
-  
-  # Whatever be the input, the output is going to be an our_Operation object
-  
-  def forward(input_t):   # it will get axis from above, no check for axis here
-    result = None
-    if isinstance(input_t, ops.our_Operation):
-      shap = input_t.fwd_func(*input_t.input_nodes).shape
+  if isinstance(input_tensor, ops.Tensor):
+    raise NotImplementedError("We want only operations objects")
+    shp = input_tensor.shape
+    if shp:
+      return ops.Tensor(1, dtype = input_tensor.dtype)
     else:
-      shap = input_t.shape
-    if shap:
-      result = 1
-    return ops.Tensor(result)
-    
-  this_operation = ops.our_Operation([input_tensor], ffnc=forward, name="reduce_sum")
-  gph = ops.our_Graph.get_default_graph()
-  gph.operations.append(this_operation)
-  return this_operation
+      return ops.Tensor(None, dtype = input_tensor.dtype)
   
+  elif isinstance(input_tensor, oo):
+    def forward(input_t):
+      result = None
+      shp = input_t.fwd_func(*input_t.input_nodes).shape
+      if shp:
+        result = 1
+      return ops.Tensor(result, dtype = input_tensor.dtype)
+    
+    return oo(input_tensor, ffnc=forward) # ops.Tensor(1, dtype = input_tensor.dtype)
+    
+  else:
+    raise NotImplementedError("This is the type %s"%(type(input_tensor)))
+  # we need to return the same type of object as input
+  # if shp:
+  #   return ops.Tensor(1, dtype = input_tensor.dtype)    # scalar is returned when axis=None
+  # else:
+  #   return ops.Tensor(None, dtype = input_tensor.dtype)    # scalar is returned when axis=None
+
   # return _may_reduce_to_scalar(keepdims, axis, reduction_indices,
   #                              gen_math_ops._sum(
   #                                  input_tensor,
@@ -1630,33 +1627,36 @@ def reduce_mean(input_tensor,
   @end_compatibility
   """
   keepdims = deprecation.deprecated_argument_lookup("keepdims", keepdims, "keep_dims", keep_dims)
+
   if keepdims is None:
     keepdims = False
   assert(not(keepdims) and not(reduction_indices)), "current implementation"
   if axis:
     raise NotImplementedError
     assert(all(len(input_tensor.shape) > i > -len(input_tensor.shape)) for i in axis), "Must be in the range `[-rank(input_tensor), rank(input_tensor))`"
-  
-  def forward(input_t):
-    result = None
-    if isinstance(input_t, ops.our_Operation):
-      shap = input_t.fwd_func(*input_t.input_nodes).shape
-    else:
-      shap = input_t.shape
-    if shap:
-      result = 1
-    return ops.Tensor(result)  # , dtype = input_t.dtype)  input_t might not be a Tensor object, there no dtype
-  
-  this_operation = ops.our_Operation([input_tensor], ffnc=forward, name="reduce_mean")
-  gph = ops.our_Graph.get_default_graph()
-  gph.operations.append(this_operation)
-  return this_operation 
-
-  
   # if input_tensor.shape:  
   #   return ops.Tensor(1, dtype = input_tensor.dtype)    # scalar is returned when axis=None
   # else:
   #   return ops.Tensor(None, dtype = input_tensor.dtype)    # None is the shape when this happens
+
+  if isinstance(input_tensor, ops.Tensor):
+    raise NotImplementedError("We want only operations objects")
+    shp = input_tensor.shape
+    if shp:
+      return ops.Tensor(1, dtype = input_tensor.dtype)
+    else:
+      return ops.Tensor(None, dtype = input_tensor.dtype)
+  
+  elif isinstance(input_tensor, oo):
+    def forward(input_t):
+      result = None
+      shp = input_t.fwd_func(*input_t.input_nodes).shape
+      if shp:
+        result = 1
+      return ops.Tensor(result, dtype = input_tensor.dtype)
+    
+    return oo(input_tensor, ffnc=forward) # ops.Tensor(1, dtype = input_tensor.dtype)
+
 
   # return _may_reduce_to_scalar(keepdims, axis, reduction_indices,
   #                              gen_math_ops.mean(
@@ -2160,7 +2160,7 @@ def matmul(a,
   assert(transpose_a == transpose_b == adjoint_a == adjoint_b == a_is_sparse == b_is_sparse == False)    # as we have not yet implemented them
   if isinstance(a, (ops.Tensor, variables.Variable)) and isinstance(b, (ops.Tensor, variables.Variable)):
     shape1 = a.shape; shape2 = b.shape
-  elif isinstance(a, ops.our_Operation) and isinstance(b, variables.Variable):
+  elif isinstance(a, oo) and isinstance(b, variables.Variable):
     shape1 = a.fwd_func(*a.input_nodes).shape; shape2 = b.shape
   else:
     print(type(a), type(b), "These are the types")
@@ -2170,7 +2170,7 @@ def matmul(a,
   def checkConformability(L1, L2):
       return len(L1) == len(L2) and sorted(L1) == sorted(L2)
   assert (checkConformability(shape1[:-2], shape2[:-2])), "Not conformable!"       # handles multidimensional matrices
-  # result_shape = [*shape1[:-2], shape1[-2], shape2[-1]]
+  result_shape = [*shape1[:-2], shape1[-2], shape2[-1]]
   # if isinstance(a, variables.Variable) and isinstance(b, variables.Variable):    # assert the types of a and b you wanna use for now
     # return variables.Variable(result_shape)
   # elif isinstance(a, ops.Tensor) and isinstance(b, variables.Variable):
@@ -2181,7 +2181,7 @@ def matmul(a,
     # assert(isinstance(a, list) and isinstance(b, list))
     if isinstance(a, (ops.Tensor, variables.Variable)) and isinstance(b, (ops.Tensor, variables.Variable)):
       shape1 = a.shape; shape2 = b.shape
-    elif isinstance(a, ops.our_Operation) and isinstance(b, variables.Variable):
+    elif isinstance(a, oo) and isinstance(b, variables.Variable):
       shape1 = a.fwd_func(*a.input_nodes).shape; shape2 = b.shape
     else:
       print(type(a), type(b), "These are the types")
@@ -2192,21 +2192,17 @@ def matmul(a,
     result_shape = [*shape1[:-2], shape1[-2], shape2[-1]]
     return ops.Tensor(result_shape)   # it returns another Tensor
 
-  this_operation = ops.our_Operation([a, b], ffnc=forward, name="matmul")   # create a new operation object each time
-  gph = ops.our_Graph.get_default_graph()
-  gph.operations.append(this_operation)
-  return this_operation
-
-  # delte = True
-  # if delte:
-  #   collections = [ops.GraphKeys.OPS]
-  #   # self._graph_key = ops.get_default_graph()._graph_key
-  #   # print(collections, "SEE INSIDE MATMUL", final)    # adds to default graph
-  #   gph = ops.our_Graph.get_default_graph()
-  #   gph.add_to_collections(collections, our)
+  our = oo([a, b], ffnc=forward)   # create a new operation object each time
   
+  delte = True
+  if delte:
+    collections = [ops.GraphKeys.OPS]
+    # self._graph_key = ops.get_default_graph()._graph_key
+    # print(collections, "SEE INSIDE MATMUL", final)    # adds to default graph
+    gph = ops.our_Graph.get_default_graph()
+    gph.add_to_collections(collections, our)
   
-  
+  return our
   
 
   # with ops.name_scope(name, "MatMul", [a, b]) as name:
@@ -3243,8 +3239,6 @@ def log(x, name=None):
     A `Tensor`. Has the same type as `x`.
   """
   # assert(all)     # Check that no negative number is used
-  if isinstance(x, ops.our_Operation):   # the input of this must be an our_Operation object
-    x.name_op = x.name_op + "_+_log"
   return x    # same shape as input
 
   # _ctx = _context._context or _context.context()
@@ -3309,28 +3303,38 @@ def equal(x, y, name=None):
     A `Tensor` of type `bool`.
   """
 
-  # Since this will always be an operation, and there are no asserts, therefore, it just contains the `forward` function
-  
-  def forward(x, y):
-    if isinstance(x, ops.our_Operation):
-      shape1 = x.fwd_func(*x.input_nodes).shape
+  if isinstance(x, oo) or isinstance(y, oo):
+    # print(y.input_nodes, type(y.input_nodes), "dekhiye")
+    if isinstance(x, oo):
+      if isinstance(x.input_nodes, oo):
+        shape1 = x.fwd_func(x.input_nodes).shape
+      else:
+        shape1 = x.fwd_func(*x.input_nodes).shape
     else:
       shape1 = x.shape  
-    if isinstance(y, ops.our_Operation):
-      shape2 = y.fwd_func(*y.input_nodes).shape
+    if isinstance(y, oo):
+      # shape2 = y.fwd_func(*y.input_nodes).shape
+      if isinstance(x.input_nodes, oo):
+        shape2 = y.fwd_func(y.input_nodes).shape
+      else:
+        shape2 = y.fwd_func(*y.input_nodes).shape
     else:
       shape2 = y.shape  
-  
-    if(shape1 != shape2):
-      raise NotImplementedError("Implement broadcasting, actually just for math.equal not equal")    
-        
-    return ops.Tensor(shape=shape1)
-
     
-  this_operation = ops.our_Operation([x, y], ffnc=forward, name="equal")
-  gph = ops.our_Graph.get_default_graph()
-  gph.operations.append(this_operation)
-  return this_operation
+    if(shape1 != shape2):
+      raise NotImplementedError("Implement broadcasting, actually just for math.equal not equal")
+    
+    def forward(shape1, shape2):
+      if(shape1 != shape2):
+        raise NotImplementedError("Implement broadcasting, actually just for math.equal not equal")
+      return ops.Tensor(shape=shape1)
+      
+    return oo([shape1, shape2], ffnc=forward)
+
+    # return ops.Tensor(x.shape, x.dtype)   # same shape is returned
+  
+  else:
+    raise ValueError("Only operations expected")
 
   # _ctx = _context._context or _context.context()
   # if _ctx is not None and _ctx._thread_local_data.is_eager:

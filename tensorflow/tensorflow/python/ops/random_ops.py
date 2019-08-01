@@ -175,10 +175,25 @@ def truncated_normal(shape,
   Returns:
     A tensor of the specified shape filled with random truncated normal values.
   """
-  if not isinstance(shape, ops.Tensor):
-    return ops.Tensor(shape, dtype)
-  else:
-    return ops.Tensor(shape.shape, dtype)     
+  # print(shape, type(shape), "dekdei")
+  
+  def forward(shape):
+    # if not isinstance(shape, ops.Tensor):
+        # return ops.Tensor(shape, dtype)
+    if isinstance(shape, list):
+      return ops.Tensor(shape, dtype)
+    else:
+      raise NotImplementedError("this is the shape {} and its type{}".format(shape, type(shape)))
+    # print(shape, type(shape), shape.shape, "dekdei")
+    # return ops.Tensor(shape.shape, dtype)     
+  
+  
+  this_operation = ops.our_Operation([shape], ffnc=forward, name="truncated_normal")   # create a new operation object each time
+  gph = ops.our_Graph.get_default_graph()
+  gph.operations.append(this_operation)
+  return this_operation
+
+  
   # Returns a tensor of the same shape as input
 
   # with ops.name_scope(name, "truncated_normal", [shape, mean, stddev]) as name:

@@ -131,10 +131,17 @@ def identity(input, name=None):  # pylint: disable=redefined-builtin
   # print(input, type(input))
   # print(input.shape)
   # return input.shape
-  assert(isinstance(input, ops.Tensor))   # Create identity only for objects of Tensor class as of now
-  new = ops.Tensor(input.shape, input.dtype)
-  # print(new, type(new), "yippee")
-  return new
+  # assert(isinstance(input, ops.Tensor))
+
+  gph = ops.our_Graph.get_default_graph()
+  new_ = ops.Tensor(input.shape, input.dtype)
+  if input in gph.placeholders:
+    gph.identity_placeholders.append(new_)   # added this to placeholders set
+    return new_
+  else:
+    raise NotImplementedError("only implemented for placeholders for now")
+    return new_
+
   # if context.executing_eagerly():
   #   input = ops.convert_to_tensor(input)
   #   in_device = input.device
@@ -1843,7 +1850,10 @@ def placeholder(dtype, shape=None, name=None):
   if context.executing_eagerly():
     raise RuntimeError("tf.placeholder() is not compatible with eager execution.")
   # return
-  return ops.Tensor(shape=shape, dtype=dtypes.as_dtype(dtype).base_dtype if dtype else dtype)
+  this_placeholder = ops.Tensor(shape=shape, dtype=dtypes.as_dtype(dtype).base_dtype if dtype else dtype)
+  gph = ops.our_Graph.get_default_graph()
+  gph.placeholders.append(this_placeholder)   # added this to placeholders set
+  return this_placeholder
   # r = gen_array_ops.placeholder(dtype=dtype, shape=shape, name=name)
   # print(type(r))
   # assert False

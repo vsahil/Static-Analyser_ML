@@ -567,22 +567,6 @@ class _DeviceAttributes(object):
     )
 
 
-class our_Operation():
-    def __init__(self, input_nodes, ffnc):
-      self.input_nodes = input_nodes
-      self.output = None
-      self.fwd_func = ffnc
-    
-    # Append operation to the list of operations of the default graph
-      ops.our_Graph.get_default_graph().operations.append(self)
-
-    # def forward(self):
-    #   pass
-
-    # def backward(self):
-    #   pass
-
-
 class BaseSession(SessionInterface):
   """A class for interacting with a TensorFlow computation.
 
@@ -805,6 +789,86 @@ class BaseSession(SessionInterface):
     """
     return ops.default_session(self)
 
+
+  def evaluate_fetches(self, fetches, feed_dict):
+      
+    def topology_sort_of_operation_nodes(operation):
+      ordering = []
+      visited_nodes = set()
+
+      def recursive_helper(node):
+        if isinstance(node, ops.our_Operation):
+          for input_node in node.input_nodes:
+              # print("main:", node, "this is type:", type(input_node), "input_node:", input_node, "finalset:", visited_nodes, "HERE it is>>")
+              if not isinstance(input_node, list):    # list is unhashable, this was the error
+                if input_node not in visited_nodes:
+                  recursive_helper(input_node)
+        # else:
+        #   print("<This is me not operation{}>".format(type(node)))
+
+
+        visited_nodes.add(node)
+        ordering.append(node)
+
+      # start recursive depth-first search
+      recursive_helper(operation)
+      print(ordering, "THIS IS ORDERING")
+      return ordering
+
+    nodes_sorted = topology_sort_of_operation_nodes(fetches)
+
+
+    def f1_var(node):
+      if isinstance(node, variables.Variable):
+        return node._initial_value        # this returns a tensor, from which shape can be extracted further
+      elif isinstance(node, ops.Tensor):
+        if node in gph.placeholders:
+          return ops.Tensor(list(feed_dict[node].shape))      # this is a numpy ndarray, so return a tensor of this shape after converting the shape to a list
+        elif node in gph.identity_placeholders:     # this has been constructed just to support StackOverFlow/UT-2/fixed
+          return node   # returns a Tensor 
+        else:
+          print("This is the type of tensor:{}".format(type(node)))
+          raise NotImplementedError
+      elif isinstance(node, ops.our_Operation):
+        return node.output
+      elif isinstance(node, (list, str)):
+        return node
+      else:
+        print("This is the type:{}".format(type(node)))
+        raise NotImplementedError
+
+    gph = ops.our_Graph.get_default_graph()
+
+    for node in nodes_sorted:
+      if isinstance(node, variables.Variable): # For something like sess.run(var)   or isinstance(node, Constant):
+        assert(node in gph.variables), "variables should be in variables graph"
+        node.output = node._initial_value      # returns a tensor which can be further passed to operations
+      elif isinstance(node, ops.our_Operation):
+        assert(node in gph.operations), "operations should be in operations graph"
+        inputs = [f1_var(node) for node in node.input_nodes]    # this can be node.output as not every input in our case is our_Operation, some are variables, list etc.
+        node.output = node.fwd_func(*inputs)   # pass this as input to that node, here it should be just matmul
+      elif isinstance(node, ops.Tensor):    # If it is of tensor kind, then I am not doing any operation
+        if node in gph.placeholders:
+          # print(feed_dict.keys(), node, node == list(feed_dict.keys())[0], id(node), id(list(feed_dict.keys())[0]), "THIS IS FEED_DICT")
+          node.output = ops.Tensor(feed_dict[node].shape)      # this is a numpy ndarray, so return a tensor of this shape
+        elif node in gph.constants:
+          node.output = node      # node is already a tensor, so just return it
+        elif node in gph.identity_placeholders:
+          node.output = node.shape      # this has been constructed just to support StackOverFlow/UT-2/fixed
+        else:
+          print(node in gph.placeholders, node in gph.variables, node in gph.operations, node in gph.constants, "SEE THIS")
+          print("This is the type of tensor:{}".format(node))
+          raise NotImplementedError
+      # elif isinstance(node, str):
+      #   pass      # I don't think you need to do anything more
+      else:
+        print("This is the type:{}".format(type(node)))
+        raise NotImplementedError
+
+    return fetches.output
+
+
+
   def run(self, fetches, feed_dict=None, options=None, run_metadata=None):
     """Runs operations and evaluates tensors in `fetches`.
 
@@ -910,34 +974,14 @@ class BaseSession(SessionInterface):
         `Tensor` that doesn't exist.
     """
 
-    # print(self, "delho", type(self), str(self))
     options_ptr = tf_session.TF_NewBufferFromString(compat.as_bytes(options.SerializeToString())) if options else None
     run_metadata_ptr = tf_session.TF_NewBuffer() if run_metadata else None
-    # print(self, fetches, "YAHAN")
     assert(options_ptr == run_metadata_ptr == None), "Notimplemented"
-    # print(fetches, type(fetches))
     
     if not fetches:   # If fetches is none, we return None
       return
 
-    def topology_sort(operation):
-      ordering = []
-      visited_nodes = set()
-
-      def recursive_helper(node):
-        if isinstance(node, our_Operation):
-          for input_node in node.input_nodes:
-            if input_node not in visited_nodes:
-              recursive_helper(input_node)
-
-        visited_nodes.add(node)
-        ordering.append(node)
-
-      # start recursive depth-first search
-      recursive_helper(operation)
-      print(ordering, "THIS IS ORDERING")
-      return ordering
-
+    
     def feed_dict_shape_confirm(feed):
       for key, value in feed.items():
         if isinstance(key, ops.Tensor):
@@ -947,59 +991,42 @@ class BaseSession(SessionInterface):
           raise NotImplementedError
         if isinstance(value, np.ndarray):  
           shape_value = value.shape   # it is is numpy thing, lets think about other later
+        elif isinstance(value, (int, float)):
+          continue      # no need to check in this case
         else:
           print(type(value), "This is the type of value")
           raise NotImplementedError
         assert(len(shape_key) == len(shape_value)), "Shape of %s can't fit in %s"%(shape_value, shape_key)
         for i,j in zip(shape_key, shape_value):
-          if i != j:
+          if i != j and i:    # if `i` is None it can take nay value
             raise ValueError("Shape of %s can't fit in %s"%(shape_value, shape_key))
 
 
     if feed_dict:   # only if feed_dict is not None
       feed_dict_shape_confirm(feed_dict)    # This is for confirming is the shape of the feed_dict is conformable
+    # print("FEED_DICT IS OKAY")
 
-    print(fetches, "these are fetches")
-    g = ops.our_Graph.get_default_graph()
-    print(g._collections, "collections ")
-    nodes_sorted = topology_sort(fetches)
-    # print("now going into loop")
-    
-    def f1_var(node):
-      if isinstance(node, variables.Variable):
-        return node._initial_value        # this returns a tensor
-      else:
-        raise NotImplementedError
+    result = []
+    if isinstance(fetches, list):
+      for i in fetches:
+        result.append(self.evaluate_fetches(i, feed_dict))
+    else:
+      result.append(self.evaluate_fetches(fetches, feed_dict))
 
-    for node in nodes_sorted:
-      # if isinstance(node, Placeholder):
-        # node.output = feed_dict[node]
-      if isinstance(node, variables.Variable): # For something like sess.run(var)   or isinstance(node, Constant):
-        node.output = f1_var(node)
-      elif isinstance(node, our_Operation):
-        inputs = [f1_var(node) for node in node.input_nodes]
-        print(inputs, "currently these are the inputs")
-        node.output = node.fwd_func(*inputs)   # pass this as input to that node, here it should be just matmul
-      elif isinstance(node, ops.Tensor):    # If it is of tensor kind, then I am not doing any operation
-        node.output = node.shape      # just returns its shape
-      else:
-        print(type(node))
-        raise NotImplementedError
-
-    return fetches.output
-
-
-    try:
-      result = self._run(None, fetches, feed_dict, options_ptr, run_metadata_ptr)
-      if run_metadata:
-        proto_data = tf_session.TF_GetBuffer(run_metadata_ptr)
-        run_metadata.ParseFromString(compat.as_bytes(proto_data))
-    finally:
-      if run_metadata_ptr:
-        tf_session.TF_DeleteBuffer(run_metadata_ptr)
-      if options:
-        tf_session.TF_DeleteBuffer(options_ptr)
+    print("ALL IS WELL")
     return result
+
+    # try:
+    #   result = self._run(None, fetches, feed_dict, options_ptr, run_metadata_ptr)
+    #   if run_metadata:
+    #     proto_data = tf_session.TF_GetBuffer(run_metadata_ptr)
+    #     run_metadata.ParseFromString(compat.as_bytes(proto_data))
+    # finally:
+    #   if run_metadata_ptr:
+    #     tf_session.TF_DeleteBuffer(run_metadata_ptr)
+    #   if options:
+    #     tf_session.TF_DeleteBuffer(options_ptr)
+    # return result
 
   def partial_run(self, handle, fetches, feed_dict=None):
     """Continues the execution with more feeds and fetches.

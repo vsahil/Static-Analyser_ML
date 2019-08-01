@@ -936,6 +936,7 @@ class TensorShape(object):
       return True
     return self._dims != other.dims
 
+# from tensorflow.python.framework.o import our_Operation as oo
 
 def reshape(tensor, shape, name=None):
       r"""Reshapes a tensor.
@@ -1029,32 +1030,73 @@ def reshape(tensor, shape, name=None):
       # 4. If tensor.shape has no none and shape has no -1, then prod(tensor.shape) == prod(shape)
 
       # else:
-      assert(all(isinstance(i, int) for i in shape)), "the shape elements must be all int"
+      assert(isinstance(shape, list) and all(isinstance(i, int) for i in shape)), "the shape elements must be all int"
       assert(all(i > -1) for i in shape) , "only elements greater and or equal to -1 is allowed"
-      assert(isinstance(shape, list) and isinstance(tensor, ops.Tensor))
+
+      if isinstance(tensor, ops.Tensor):
+        shap = tensor.shape
+      elif isinstance(tensor, ops.our_Operation):
+        shap = tensor.fwd_func(*tensor.input_nodes).shape
+      else:
+        print("This is the tensor type:{}".format(type(tensor))); raise NotImplementedError
+        
       if -1 in shape:
          assert(shape.count(-1) == 1), "-1 can be maximally once in the shape"
-      # print(tensor.shape)
+      
+      # don't do the new shape calculation as we are now using the forward function
       # Rule 1
-      if None in tensor.shape and -1 in shape:
-        new_shape =  [None if x==-1 else x for x in shape]
+      if None in shap and -1 in shape:
+        pass
+        # new_shape =  [None if x==-1 else x for x in shape]
       # Rule 2
-      elif None in tensor.shape and not -1 in shape:
-        div = np.prod([i for i in tensor.shape if i])
+      elif None in shap and not -1 in shape:
+        div = np.prod([i for i in shap if i])
         assert(np.prod(shape) % div == 0), "{} must be divisible by {}".format(np.prod(shape), div)
-        new_shape = shape
+        # new_shape = shape
       # Rule 3
       elif -1 in shape:
-        assert(np.prod(tensor.shape) % (-np.prod(shape)) == 0), "{} must be divisible by {}".format(np.prod(tensor.shape), -np.prod(shape))
-        th = -(np.prod(tensor.shape) // np.prod(shape))
-        new_shape = [th if x==-1 else x for x in shape]
+        assert(np.prod(shap) % (-np.prod(shape)) == 0), "{} must be divisible by {}".format(np.prod(shap), -np.prod(shape))
+        # th = -(np.prod(shap) // np.prod(shape))
+        # new_shape = [th if x==-1 else x for x in shape]
       # Rule 4 
       else:
-        assert(np.prod(tensor.shape) == np.prod(shape))
-        new_shape = shape
+        assert(np.prod(shap) == np.prod(shape))
+        # new_shape = shape
 
-      return ops.Tensor(new_shape)    # No dtype
       
+      def forward(tensor, shape):
+        if isinstance(tensor, ops.Tensor):
+          shap = tensor.shape
+        elif isinstance(tensor, ops.our_Operation):
+          shap = tensor.fwd_func(*tensor.input_nodes).shape
+        else:
+          print("<This is the tensor type:{}, shape:{}, tensor:{}>".format(type(tensor), shape, tensor)); raise NotImplementedError
+        
+        # Rule 1
+        if None in shap and -1 in shape:
+          new_shape =  [None if x==-1 else x for x in shape]
+        # Rule 2
+        elif None in shap and not -1 in shape:
+          div = np.prod([i for i in shap if i])
+          assert(np.prod(shape) % div == 0), "{} must be divisible by {}".format(np.prod(shape), div)
+          new_shape = shape
+        # Rule 3
+        elif -1 in shape:
+          assert(np.prod(shap) % (-np.prod(shape)) == 0), "{} must be divisible by {}".format(np.prod(shap), -np.prod(shape))
+          th = -(np.prod(shap) // np.prod(shape))
+          new_shape = [th if x==-1 else x for x in shape]
+        # Rule 4 
+        else:
+          assert(np.prod(shap) == np.prod(shape))
+          new_shape = shape
+
+        return ops.Tensor(new_shape)    # No dtype
+      
+      this_operation = ops.our_Operation([tensor, shape], ffnc=forward, name="reshape")   # create a new operation object each time
+      gph = ops.our_Graph.get_default_graph()
+      gph.operations.append(this_operation)
+      return this_operation
+
       # try:
       #   _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
       #     _ctx._context_handle, _ctx._eager_context.device_name, "Reshape",
@@ -1186,18 +1228,46 @@ def conv2d(input, filter, strides, padding, use_cudnn_on_gpu=True, data_format="
   # put assert on padding
   # output[b, i, j, k] = sum_{di, dj, q} input[b, strides[1] * i + di, strides[2] * j + dj, q] * filter[di, dj, q, k]
   # assert(padding == "VALID" or padding )
-  assert(input.shape[1] == input.shape[2]), "inheight and inwidth must be equal"
+  if isinstance(input, ops.Tensor):
+    shap = input.shape
+  elif isinstance(input, ops.our_Operation):
+    shap = input.fwd_func(*input.input_nodes).shape   # always make our_Operation return a tensor or variable
+    assert(shap[1] == shap[2]), "inheight and inwidth must be equal"   
+  else:
+    print("this is the type of input{}".format(type(input))); raise NotImplementedError
+  
+  assert(shap[1] == shap[2]), "inheight and inwidth must be equal"     
   assert(filter.shape[0] == filter.shape[1]), "filter height and filter weight must be equal"
   assert(all(i == 1 for i in strides)), "currently implementation only works for strides = 1"
   assert(dilations == [1,1,1,1] and data_format == "NHWC"), "this basically means no difference in shape from convoulution without dilation"
   if padding == "VALID":
-    assert(input.shape[1] >= filter.shape[0]), "Input shape[1] must be larger than or equal to filter.shape[0]"
-    assert(input.shape[2] >= filter.shape[1]), "Input shape[1] must be larger than or equal to filter.shape[0]"
-    output_shape = [input.shape[0], (input.shape[1]-filter.shape[0] + 1), (input.shape[2]-filter.shape[1] + 1), filter.shape[3]]
-  else:
-    output_shape = [input.shape[0], input.shape[1], input.shape[2], filter.shape[3]]
-  return ops.Tensor(output_shape)    # No dtype
+    assert(shap[1] >= filter.shape[0]), "Input shape[1] must be larger than or equal to filter.shape[0]"
+    assert(shap[2] >= filter.shape[1]), "Input shape[1] must be larger than or equal to filter.shape[0]"
 
+  def forward(input, filer):    # padding assessible without passing as well, and it doesn't change
+    if isinstance(input, ops.Tensor):
+      shap = input.shape
+    elif isinstance(input, ops.our_Operation):
+      shap = input.fwd_func(*input.input_nodes).shape   # always make our_Operation return a tensor or variable
+    else:
+      print("this is the type of input{}".format(type(input))); raise NotImplementedError
+    
+    assert(shap[1] == shap[2]), "inheight and inwidth must be equal"   
+    assert(filter.shape[0] == filter.shape[1]), "filter height and filter weight must be equal"
+    if padding == "VALID":
+      assert(shap[1] >= filter.shape[0]), "Input shape[1] must be larger than or equal to filter.shape[0]"
+      assert(shap[2] >= filter.shape[1]), "Input shape[1] must be larger than or equal to filter.shape[0]"
+      output_shape = [shap[0], (shap[1]-filter.shape[0] + 1), (shap[2]-filter.shape[1] + 1), filter.shape[3]]
+    else:
+      output_shape = [shap[0], shap[1], shap[2], filter.shape[3]]
+    
+    return ops.Tensor(output_shape)    # No dtype
+
+  this_operation = ops.our_Operation([input, filter], ffnc=forward, name="conv2d")   # create a new operation object each time
+  gph = ops.our_Graph.get_default_graph()
+  gph.operations.append(this_operation)
+  return this_operation
+  
   # _ctx = _context._context
   # if _ctx is None or not _ctx._eager_context.is_eager:
   #   if not isinstance(strides, (list, tuple)):
@@ -1269,6 +1339,8 @@ def relu(features, name=None):
     A `Tensor`. Has the same type as `features`.
   """
   # I am not checking the type of the input
+  # if isinstance(features, ops.our_Operation):   # the input of this must be an our_Operation object
+  features.name_op = features.name_op + "_+_nn.relu"
   return features   # output shape is same as input shape, just returning object
 
   # _ctx = _context._context

@@ -180,8 +180,11 @@ def constant(value, dtype=None, shape=None, name="Const", verify_shape=False):
   Raises:
     TypeError: if shape is incorrectly specified or unsupported.
   """
-
-  return ops.Tensor(shape, dtype)
+  
+  this_constant = ops.Tensor(shape, dtype)
+  gph = ops.our_Graph.get_default_graph()
+  gph.constants.append(this_constant)
+  return this_constant
 
   # ctx = context.context()
   # if ctx.executing_eagerly():

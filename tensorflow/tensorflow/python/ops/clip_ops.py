@@ -58,7 +58,12 @@ def clip_by_value(t, clip_value_min, clip_value_max,
     ValueError: if the clip tensors would trigger array broadcasting
       that would make the returned tensor larger than the input.
   """
-  assert((isinstance(clip_value_min, float) and isinstance(clip_value_max, float)) or (clip_value_min.shape == clip_value_max.shape == t.shape)), "Clips are 0-D (scalar) `Tensor`, or a `Tensor` with the same shape as t"
+  if isinstance(t, ops.our_Operation):   # the input of this must be an our_Operation object
+    t.name_op = t.name_op + "_+_nn.softmax"
+    shap = t.fwd_func(*t.input_nodes).shape
+  else:
+    shap = t.shape
+  assert((isinstance(clip_value_min, float) and isinstance(clip_value_max, float)) or (clip_value_min.shape == clip_value_max.shape == shap)), "Clips are 0-D (scalar) `Tensor`, or a `Tensor` with the same shape as t"
   return t  # returns a tensor of same shape as input
 
   # with ops.name_scope(name, "clip_by_value",
