@@ -5613,16 +5613,19 @@ class our_Operation():
     
       our_Graph.get_default_graph().operations.append(self)
 
+    def __mul__(self, other):
+      if isinstance(other, our_Operation):
+        shape1 = self.fwd_func(*self.input_nodes).shape; shape2 = other.fwd_func(*other.input_nodes).shape
+      else:
+        raise NotImplementedError("These are the types of self:{} and other:{}".format(type(self), type(other)))
+      assert(shape1 == shape2), "for multiplication shape must be same %s %s"%(shape1, shape2)
+      return self
+    
     def __rmul__(self, other):
-      # print(self, other, "me sir")
       if isinstance(other, Tensor):
         shape1 = self.fwd_func(*self.input_nodes).shape; shape2 = other.shape
-        # print(self.input_nodes)
-      # elif isinstance(self, (Tensor, Variable)) and isinstance(other, oo):
-        # shape1 = self.shape; shape2 = other.fwd_func(*other.input_nodes).shape
       else:
-        print(type(self), type(other), "These are the types of self and other")
-        raise NotImplementedError
+        raise NotImplementedError("These are the types of self:{} and other:{}".format(type(self), type(other)))
       assert(shape1 == shape2), "for multiplication shape must be same %s %s"%(shape1, shape2)
       return self
 
@@ -5632,6 +5635,10 @@ class our_Operation():
     def __repr__(self):
       return "<Operation object {}>".format(self.name_op) #, [i.name_op if isinstance(i, our_Operation) else i for i in self.input_nodes])
     
+    # should be same as calling the session on this
+    def eval(self, feed_dict):
+      session = get_default_session()
+      return session.run(self, feed_dict)
 
 
 class our_Graph():

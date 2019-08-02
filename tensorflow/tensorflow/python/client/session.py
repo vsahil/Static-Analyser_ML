@@ -823,7 +823,7 @@ class BaseSession(SessionInterface):
         return node._initial_value        # this returns a tensor, from which shape can be extracted further
       elif isinstance(node, ops.Tensor):
         if node in gph.placeholders:
-          return ops.Tensor(list(feed_dict[node].shape))      # this is a numpy ndarray, so return a tensor of this shape after converting the shape to a list
+          return ops.Tensor(feed_dict[node])      # this is a numpy ndarray shape, so return it       # OLD a tensor of this shape after converting the shape to a list
         elif node in gph.identity_placeholders:     # this has been constructed just to support StackOverFlow/UT-2/fixed
           return node   # returns a Tensor 
         else:
@@ -831,7 +831,7 @@ class BaseSession(SessionInterface):
           raise NotImplementedError
       elif isinstance(node, ops.our_Operation):
         return node.output
-      elif isinstance(node, (list, str)):
+      elif isinstance(node, (list, str, int)):
         return node
       else:
         print("This is the type:{}".format(type(node)))
@@ -850,7 +850,7 @@ class BaseSession(SessionInterface):
       elif isinstance(node, ops.Tensor):    # If it is of tensor kind, then I am not doing any operation
         if node in gph.placeholders:
           # print(feed_dict.keys(), node, node == list(feed_dict.keys())[0], id(node), id(list(feed_dict.keys())[0]), "THIS IS FEED_DICT")
-          node.output = ops.Tensor(feed_dict[node].shape)      # this is a numpy ndarray, so return a tensor of this shape
+          node.output = ops.Tensor(feed_dict[node])      # this is a numpy ndarray shape, so return it    # OLD : a tensor of this shape
         elif node in gph.constants:
           node.output = node      # node is already a tensor, so just return it
         elif node in gph.identity_placeholders:
@@ -859,8 +859,8 @@ class BaseSession(SessionInterface):
           print(node in gph.placeholders, node in gph.variables, node in gph.operations, node in gph.constants, "SEE THIS")
           print("This is the type of tensor:{}".format(node))
           raise NotImplementedError
-      # elif isinstance(node, str):
-      #   pass      # I don't think you need to do anything more
+      elif isinstance(node, int):   # like depth in `tf.one_hot` case
+        pass      # I don't think you need to do anything more
       else:
         print("This is the type:{}".format(type(node)))
         raise NotImplementedError
@@ -982,36 +982,46 @@ class BaseSession(SessionInterface):
       return
 
     
-    def feed_dict_shape_confirm(feed):
+    def feed_dict_shape_confirm(feed, feed_dict_shapes):
       for key, value in feed.items():
         if isinstance(key, ops.Tensor):
           shape_key = key.shape
         else:
-          print(type(key), "This is the type of key")
-          raise NotImplementedError
+          raise NotImplementedError("This is the type of value:{}".format(type(value))) 
         if isinstance(value, np.ndarray):  
           shape_value = value.shape   # it is is numpy thing, lets think about other later
+        elif isinstance(value, list):
+          if all(isinstance(v, np.ndarray) for v in value):
+            shape_value = [len(value)] + list(value[0].shape)  # two lists can be added ; shape_value.insert(0, len(value))
+          elif all(isinstance(v, int) for v in value):
+            shape_value = [len(value)]    # we can also do it [1, len(value)]
+          else:
+            raise NotImplementedError("This is the type of value:{}".format(type(value))) 
         elif isinstance(value, (int, float)):
+          feed_dict_shapes[key] = value
           continue      # no need to check in this case
         else:
-          print(type(value), "This is the type of value")
-          raise NotImplementedError
+          raise NotImplementedError("This is the type of value:{}".format(type(value)))
         assert(len(shape_key) == len(shape_value)), "Shape of %s can't fit in %s"%(shape_value, shape_key)
         for i,j in zip(shape_key, shape_value):
           if i != j and i:    # if `i` is None it can take nay value
             raise ValueError("Shape of %s can't fit in %s"%(shape_value, shape_key))
+        
+        feed_dict_shapes[key] = shape_value   # this is the shape value
 
-
+    # is this assert gets passed, we can store the shape of the feed_dict keys and use it later directly
     if feed_dict:   # only if feed_dict is not None
-      feed_dict_shape_confirm(feed_dict)    # This is for confirming is the shape of the feed_dict is conformable
-    # print("FEED_DICT IS OKAY")
+      feed_dict_shapes = {}
+      feed_dict_shape_confirm(feed_dict, feed_dict_shapes)    # This is for confirming is the shape of the feed_dict is conformable
+    
+    print("FEED_DICT IS OKAY", feed_dict_shapes)    # I expect the feed_dict_shape to change as it is mutable object (passed by reference)
 
     result = []
     if isinstance(fetches, list):
       for i in fetches:
-        result.append(self.evaluate_fetches(i, feed_dict))
+        result.append(self.evaluate_fetches(i, feed_dict_shapes))
     else:
-      result.append(self.evaluate_fetches(fetches, feed_dict))
+      result.append(self.evaluate_fetches(fetches, feed_dict_shapes))
 
     print("ALL IS WELL")
     return result
