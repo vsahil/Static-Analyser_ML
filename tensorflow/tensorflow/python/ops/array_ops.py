@@ -1412,13 +1412,37 @@ def split(value, num_or_size_splits, axis=0, num=None, name="split"):
   Raises:
     ValueError: If `num` is unspecified and cannot be inferred.
   """
-  assert(isinstance(num_or_size_splits, int)), "Tensor splits not implemented"
-  if value.shape[axis]:   # only is this is not None
-    assert(value.shape[axis] % num_or_size_splits == 0), "Requires that `num_split` evenly divides `value.shape[axis]`"
-  output_shape = value.shape[:]
-  output_shape[axis] = value.shape[axis] // num_or_size_splits if value.shape[axis] else value.shape[axis]      # If it is none, just put None as None
-  return [ops.Tensor(output_shape, value.dtype) for _ in range(num_or_size_splits)]   # returns a list of Tensors of output_shape
+  assert(isinstance(num_or_size_splits, int) and axis == 0), "Tensor splits not implemented, accepting only 0 axis"
+  if isinstance(value, ops.Tensor):
+    shap = value.shape
+  elif isinstance(value, ops.our_Operation):
+    shap = value.fwd_func(*value.input_nodes).shape
+  else:
+    raise NotImplementedError("This is the type:{}".format(type(value)))
+        
+  if shap[axis]:   # only is this is not None, this assert will be copied in the forward function
+    assert(shap[axis] % num_or_size_splits == 0), "Requires that `num_split` evenly divides `value.shape[axis]`"
+  
+  def forward(value, num_or_size_splits):
+    if isinstance(value, ops.Tensor):
+      shap = value.shape
+    elif isinstance(value, ops.our_Operation):
+      shap = value.fwd_func(*value.input_nodes).shape
+    else:
+      raise NotImplementedError("This is the type:{}".format(type(value)))       
+    
+    if shap[axis]:   # this assert is repeated in the `forward` function
+      assert(shap[axis] % num_or_size_splits == 0), "Requires that `num_split` evenly divides `value.shape[axis]`"
+    
+    output_shape = shap[:]
+    output_shape[axis] = shap[axis] // num_or_size_splits if shap[axis] else shap[axis]      # If it is none, just put None as None
+    return [ops.Tensor(output_shape) for _ in range(num_or_size_splits)]   # returns a list of Tensors of output_shape
 
+  this_operation = ops.our_Operation([value, num_or_size_splits], ffnc=forward, name="split")   # create a new operation object each time
+  gph = ops.our_Graph.get_default_graph()
+  gph.operations.append(this_operation)
+  return this_operation
+  
   # size_splits = ops.convert_to_tensor(num_or_size_splits)
   # if size_splits._rank() == 0 and size_splits.dtype.is_integer:
   #   return gen_array_ops.split(
@@ -1500,11 +1524,25 @@ def transpose(a, perm=None, name="transpose", conjugate=False):
   Returns:
     A transposed `Tensor`.
   """
-  assert(conjugate == False)
-  if perm == None:
-    perm = [i for i in range(len(a.shape)-1, -1, -1)]
-  output_shape = [a.shape[i] for i in perm]
-  return ops.Tensor(output_shape, a.dtype)
+  assert(conjugate == False)      # this assert will not go inseide `forward` function
+  
+  def forward(a, perm):   # this assumes that a is an tensor, not op_Operation object
+    if isinstance(a, ops.Tensor):
+      shap = a.shape
+    elif isinstance(a, ops.our_Operation):
+      shap = a.fwd_func(*a.input_nodes).shape
+    else:
+      raise NotImplementedError("This is the type:{}".format(type(a)))
+    if perm == None:
+      perm = [i for i in range(len(shap)-1, -1, -1)]
+    output_shape = [shap[i] for i in perm] 
+    return ops.Tensor(output_shape)     # a may not be tensor so can't have dtype here , a.dtype)
+
+  this_operation = ops.our_Operation([a, perm], ffnc=forward, name="transpose")   # create a new operation object each time
+  gph = ops.our_Graph.get_default_graph()
+  gph.operations.append(this_operation)
+  return this_operation
+  
   
   # with ops.name_scope(name, "transpose", [a]) as name:
   #   transpose_fn = (

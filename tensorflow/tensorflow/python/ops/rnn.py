@@ -1226,53 +1226,157 @@ def static_rnn(cell,
       (column size) cannot be inferred from inputs via shape inference.
   """
   rnn_cell_impl.assert_like_rnncell("cell", cell)
-  if not nest.is_sequence(inputs):
+  if isinstance(inputs, ops.our_Operation):
+    here_inputs = inputs.fwd_func(*inputs.input_nodes)
+  if not nest.is_sequence(here_inputs):
     raise TypeError("inputs must be a sequence")
-  if not inputs:
+  if not here_inputs:
     raise ValueError("inputs must not be empty")
   assert(initial_state is None and sequence_length is None), "Not implemented other parts"
-  outputs = []
+  
+  # cell is not a variable here actually    
   # Create a new scope in which the caching device is either
   # determined by the parent scope, or is set to place the cached
   # Variable using the same placement as for the rest of the RNN.
-  with vs.variable_scope(scope or "rnn") as varscope:
-    if not context.executing_eagerly():
-      if varscope.caching_device is None:
-        varscope.set_caching_device(lambda op: op.device)
+  def fwd1(inputs):
+    outputs = []; sequence_length = None; scope = None  
+    if isinstance(inputs, ops.our_Operation):
+      inputs = inputs.fwd_func(*inputs.input_nodes)
+    with vs.variable_scope(scope or "rnn") as varscope:
+      if not context.executing_eagerly():
+        if varscope.caching_device is None:
+          varscope.set_caching_device(lambda op: op.device)
 
-    # Obtain the first sequence of the input
+      # Obtain the first sequence of the input
+      first_input = inputs
+      while nest.is_sequence(first_input):    # this is DFS in first_input[0]
+        first_input = first_input[0]
+        # print(first_input, "continue")
+
+      # Temporarily avoid EmbeddingWrapper and seq2seq badness
+      # TODO(lukaszkaiser): remove EmbeddingWrapper
+      if len(first_input.shape) != 1:
+        # print("I am here")
+        # input_shape = first_input.get_shape().with_rank_at_least(2)
+        input_shape = first_input.shape   # equivalent to above
+        fixed_batch_size = input_shape[0]
+
+        flat_inputs = nest.flatten(inputs)
+        for flat_input in flat_inputs:
+          # print(flat_input, flat_input.shape)
+          # input_shape = flat_input.get_shape().with_rank_at_least(2)
+          input_shape = flat_input.shape    # equivalent to above
+          batch_size, input_size = input_shape[0], input_shape[1:]
+          # fixed_batch_size.merge_with(batch_size)       # equivalent code written below
+          
+          # if fixed_batch_size is None and batch_size is None:
+          #   fixed_batch_size = fixed_batch_size
+          if fixed_batch_size is not None and batch_size is not None:
+            assert(fixed_batch_size == batch_size)
+          #   fixed_batch_size = fixed_batch_size   # any thing can be returned
+          elif fixed_batch_size is None:
+            # print("this is me", fixed_batch_size, batch_size)
+            fixed_batch_size = batch_size
+          # elif batch_size is None:
+            # fixed_batch_size = fixed_batch_size
+          # print("fixed batch size", fixed_batch_size)
+          
+          for i, size in enumerate(input_size):
+            if size is None:
+              raise ValueError(
+                  "Input size (dimension %d of inputs) must be accessible via "
+                  "shape inference, but saw value None." % i)
+      else:
+        fixed_batch_size = first_input.get_shape().with_rank_at_least(1)[0]
+
+      if fixed_batch_size:    # Not None, doesn't enter here
+        batch_size = fixed_batch_size
+      else:
+        batch_size = first_input.shape[0]     # batch size, becomes None again
+        # print("updated batch size", batch_size)
+      if initial_state is not None:   # doesn't enter here
+        state = initial_state
+      else:
+        if not dtype:
+          raise ValueError("If no initial_state is provided, dtype must be specified")
+        state = cell.zero_state(batch_size, dtype)
+
+      if sequence_length is not None:     # doesn't enter here Prepare variables
+        sequence_length = ops.convert_to_tensor(
+            sequence_length, name="sequence_length")
+        if sequence_length.get_shape().ndims not in (None, 1):
+          raise ValueError(
+              "sequence_length must be a vector of length batch_size")
+
+        def _create_zero_output(output_size):
+          # convert int to TensorShape if necessary
+          size = _concat(batch_size, output_size)
+          output = array_ops.zeros(
+              array_ops.stack(size), _infer_state_dtype(dtype, state))
+          shape = _concat(fixed_batch_size.value, output_size, static=True)
+          output.set_shape(tensor_shape.TensorShape(shape))
+          return output
+
+        output_size = cell.output_size
+        flat_output_size = nest.flatten(output_size)
+        flat_zero_output = tuple(
+            _create_zero_output(size) for size in flat_output_size)
+        zero_output = nest.pack_sequence_as(
+            structure=output_size, flat_sequence=flat_zero_output)
+
+        sequence_length = math_ops.to_int32(sequence_length)
+        min_sequence_length = math_ops.reduce_min(sequence_length)
+        max_sequence_length = math_ops.reduce_max(sequence_length)
+      for time, input_ in enumerate(inputs):
+        if time > 0:
+          varscope.reuse_variables()
+        # pylint: disable=cell-var-from-loop
+        call_cell = lambda: cell(input_, state)
+        # pylint: enable=cell-var-from-loop
+        if sequence_length is not None:      # doesn't enter here
+          print("ATLEAST SEE ME HERE123456")
+          (output, state) = _rnn_step(
+              time=time,
+              sequence_length=sequence_length,
+              min_sequence_length=min_sequence_length,
+              max_sequence_length=max_sequence_length,
+              zero_output=zero_output,
+              state=state,
+              call_cell=call_cell,
+              state_size=cell.state_size)
+        else:
+          # print("ATLEAST SEE ME HERE")
+          # (output, state) = call_cell()
+          output = call_cell()    # not this returns just output, not state, as it remains constant for ShapeFlow
+          # print(state, "I AM NEW")
+        outputs.append(output)
+
+    return outputs     # Here outputs, is a list of our_Operation objects
+
+  gph = ops.our_Graph.get_default_graph()
+  this_operation= ops.our_Operation([inputs], ffnc=fwd1, name="rnn_output")
+  gph.operations.append(this_operation)
+  
+  def fwd2(inputs):
     first_input = inputs
     while nest.is_sequence(first_input):    # this is DFS in first_input[0]
       first_input = first_input[0]
-      # print(first_input, "continue")
 
     # Temporarily avoid EmbeddingWrapper and seq2seq badness
     # TODO(lukaszkaiser): remove EmbeddingWrapper
     if len(first_input.shape) != 1:
-      # print("I am here")
-      # input_shape = first_input.get_shape().with_rank_at_least(2)
       input_shape = first_input.shape   # equivalent to above
       fixed_batch_size = input_shape[0]
 
       flat_inputs = nest.flatten(inputs)
       for flat_input in flat_inputs:
-        # print(flat_input, flat_input.shape)
-        # input_shape = flat_input.get_shape().with_rank_at_least(2)
         input_shape = flat_input.shape    # equivalent to above
         batch_size, input_size = input_shape[0], input_shape[1:]
-        # fixed_batch_size.merge_with(batch_size)       # equivalent code written below
         
-        # if fixed_batch_size is None and batch_size is None:
-        #   fixed_batch_size = fixed_batch_size
         if fixed_batch_size is not None and batch_size is not None:
           assert(fixed_batch_size == batch_size)
-        #   fixed_batch_size = fixed_batch_size   # any thing can be returned
         elif fixed_batch_size is None:
-          # print("this is me", fixed_batch_size, batch_size)
           fixed_batch_size = batch_size
-        # elif batch_size is None:
-          # fixed_batch_size = fixed_batch_size
-        # print("fixed batch size", fixed_batch_size)
         
         for i, size in enumerate(input_size):
           if size is None:
@@ -1286,7 +1390,6 @@ def static_rnn(cell,
       batch_size = fixed_batch_size
     else:
       batch_size = first_input.shape[0]     # batch size, becomes None again
-      # print("updated batch size", batch_size)
     if initial_state is not None:   # doesn't enter here
       state = initial_state
     else:
@@ -1294,55 +1397,11 @@ def static_rnn(cell,
         raise ValueError("If no initial_state is provided, dtype must be specified")
       state = cell.zero_state(batch_size, dtype)
 
-    if sequence_length is not None:     # doesn't enter here Prepare variables
-      sequence_length = ops.convert_to_tensor(
-          sequence_length, name="sequence_length")
-      if sequence_length.get_shape().ndims not in (None, 1):
-        raise ValueError(
-            "sequence_length must be a vector of length batch_size")
-
-      def _create_zero_output(output_size):
-        # convert int to TensorShape if necessary
-        size = _concat(batch_size, output_size)
-        output = array_ops.zeros(
-            array_ops.stack(size), _infer_state_dtype(dtype, state))
-        shape = _concat(fixed_batch_size.value, output_size, static=True)
-        output.set_shape(tensor_shape.TensorShape(shape))
-        return output
-
-      output_size = cell.output_size
-      flat_output_size = nest.flatten(output_size)
-      flat_zero_output = tuple(
-          _create_zero_output(size) for size in flat_output_size)
-      zero_output = nest.pack_sequence_as(
-          structure=output_size, flat_sequence=flat_zero_output)
-
-      sequence_length = math_ops.to_int32(sequence_length)
-      min_sequence_length = math_ops.reduce_min(sequence_length)
-      max_sequence_length = math_ops.reduce_max(sequence_length)
-    # print(inputs, "ssee")
-    for time, input_ in enumerate(inputs):
-      if time > 0:
-        varscope.reuse_variables()
-      # pylint: disable=cell-var-from-loop
-      call_cell = lambda: cell(input_, state)
-      # pylint: enable=cell-var-from-loop
-      if sequence_length is not None:      # doesn't enter here
-        (output, state) = _rnn_step(
-            time=time,
-            sequence_length=sequence_length,
-            min_sequence_length=min_sequence_length,
-            max_sequence_length=max_sequence_length,
-            zero_output=zero_output,
-            state=state,
-            call_cell=call_cell,
-            state_size=cell.state_size)
-      else:
-        (output, state) = call_cell()
-      # print()
-      outputs.append(output)
-
-    return (outputs, state)
+      
+  return (this_operation, None)  # make state None as it is not being used
+    
+  # this_operation2= ops.our_Operation([inputs], ffnc=fwd2, name="rnn_state")
+  # gph.operations.append(this_operation2)
 
 
 @tf_export("nn.static_state_saving_rnn")

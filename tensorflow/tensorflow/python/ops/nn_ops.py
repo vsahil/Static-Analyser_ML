@@ -1738,7 +1738,7 @@ def softmax(logits, axis=None, name=None, dim=None):
     logits.name_op = logits.name_op + "_+_nn.softmax"
     shap = logits.fwd_func(*logits.input_nodes).shape
   else:
-    shap = logits.shape
+    shap = logits.shape     # this will implicitly assert that it is either a variable or Tensor
   if axis:
     assert(axis < len(shap)), "axis is beyond the last dimension of logits"
   return logits   # Returns: A `Tensor`. Has the same type and shape as `logits`.
@@ -1962,11 +1962,27 @@ def softmax_cross_entropy_with_logits(
 
   _ensure_xent_args("softmax_cross_entropy_with_logits", _sentinel, labels, logits)
   assert(dim == -1), "Not implemented otherwise"
-  if labels.shape:    # If this is not None, only then check shape
-    assert(logits.shape == labels.shape), "`logits` and `labels` must have the same shape"
+  
+  def forward(logits, labels):
+    if isinstance(logits, ops.our_Operation):   # the input of this must be an our_Operation object
+      shap = logits.fwd_func(*logits.input_nodes).shape
+    else:
+      shap = logits.shape   # this will implicitly assert that it is either a variable or Tensor
+    if all(i for i in labels.shape):    # If this is not None, only then check shape
+      # print(shap, labels.shape, "CHECK")
+      # for i in range(len(labels.shape)):    # limited by shape of labels, no 
+      assert(shap == labels.shape), "`logits` and `labels` must have the same shape"
+
     return ops.Tensor(labels.shape[0])    # assuming first element of shape is the batchsize
-  else:
-    return ops.Tensor(labels.shape)    #, here labels.shape is None assuming first element of shape is the batchsize
+  
+  this_operation = ops.our_Operation([logits, labels], ffnc=forward, name="softmax_cross_entropy_with_logits")   # create a new operation object each time
+  gph = ops.our_Graph.get_default_graph()
+  gph.operations.append(this_operation)
+  return this_operation
+
+  # else:
+    # return ops.Tensor(labels.shape)    #, here labels.shape is None assuming first element of shape is the batchsize
+  
   # with ops.name_scope(name, "softmax_cross_entropy_with_logits_sg",
   #                     [logits, labels]) as name:
   #   labels = array_ops.stop_gradient(labels, name="labels_stop_gradient")
@@ -2024,14 +2040,32 @@ def sparse_softmax_cross_entropy_with_logits(
     ValueError: If logits are scalars (need to have rank >= 1) or if the rank
       of the labels is not equal to the rank of the logits minus one.
   """
-  _ensure_xent_args("sparse_softmax_cross_entropy_with_logits", _sentinel,
-                    labels, logits)
+  
+  _ensure_xent_args("sparse_softmax_cross_entropy_with_logits", _sentinel, labels, logits)
+  
+  def forward(logits, labels):
+    if isinstance(logits, ops.our_Operation):   # the input of this must be an our_Operation object
+      shap = logits.fwd_func(*logits.input_nodes).shape
+    else:
+      shap = logits.shape   # this will implicitly assert that it is either a variable or Tensor
+    assert(len(labels.shape) == 1 and len(shap) == 2 and labels.shape[0] == shap[0]), "`logits` and `labels` must have the same shape"
+
+    return ops.Tensor(labels.shape[0])    # First element of labels shape is the batchsize
+  
+  this_operation = ops.our_Operation([logits, labels], ffnc=forward, name="sparse_softmax_cross_entropy_with_logits")   # create a new operation object each time
+  gph = ops.our_Graph.get_default_graph()
+  gph.operations.append(this_operation)
+  return this_operation
+
 
   # TODO(pcmurray) Raise an error when the label is not an index in
-  # [0, num_classes). Note: This could break users who call this with bad
+  # [0, num_classes). Note: This could break users who call this with bad   # we won't raise this, as this is not a shape issue
   # labels, but disregard the bad results.
 
   # Reshape logits and labels to rank 2.
+
+
+
   with ops.name_scope(name, "SparseSoftmaxCrossEntropyWithLogits",
                       [labels, logits]):
     labels = ops.convert_to_tensor(labels)

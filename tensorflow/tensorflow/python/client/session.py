@@ -806,8 +806,8 @@ class BaseSession(SessionInterface):
         # else:
         #   print("<This is me not operation{}>".format(type(node)))
 
-
         visited_nodes.add(node)
+        # visited_nodes.add(tuple(node) if isinstance(node, list) else node)
         ordering.append(node)
 
       # start recursive depth-first search
@@ -815,9 +815,9 @@ class BaseSession(SessionInterface):
       print(ordering, "THIS IS ORDERING")
       return ordering
 
+    # print(fetches, type(fetches), "WEGR")   # this can be a list of operation objects
     nodes_sorted = topology_sort_of_operation_nodes(fetches)
-
-
+    # print(len(nodes_sorted), "LENGHT OF NODES SORTED")
     def f1_var(node):
       if isinstance(node, variables.Variable):
         return node._initial_value        # this returns a tensor, from which shape can be extracted further
@@ -827,27 +827,27 @@ class BaseSession(SessionInterface):
         elif node in gph.identity_placeholders:     # this has been constructed just to support StackOverFlow/UT-2/fixed
           return node   # returns a Tensor 
         else:
-          print("This is the type of tensor:{}".format(type(node)))
-          raise NotImplementedError
+          raise NotImplementedError("This is the type:{}".format(type(node)))
       elif isinstance(node, ops.our_Operation):
         return node.output
       elif isinstance(node, (list, str, int)):
         return node
       else:
-        print("This is the type:{}".format(type(node)))
-        raise NotImplementedError
+        raise NotImplementedError("This is the type:{}".format(type(node)))
 
     gph = ops.our_Graph.get_default_graph()
 
     for node in nodes_sorted:
-      if isinstance(node, variables.Variable): # For something like sess.run(var)   or isinstance(node, Constant):
+      if isinstance(node, variables.Variable):    # For something like sess.run(var)   or isinstance(node, Constant):
         assert(node in gph.variables), "variables should be in variables graph"
         node.output = node._initial_value      # returns a tensor which can be further passed to operations
       elif isinstance(node, ops.our_Operation):
         assert(node in gph.operations), "operations should be in operations graph"
         inputs = [f1_var(node) for node in node.input_nodes]    # this can be node.output as not every input in our case is our_Operation, some are variables, list etc.
         node.output = node.fwd_func(*inputs)   # pass this as input to that node, here it should be just matmul
-      elif isinstance(node, ops.Tensor):    # If it is of tensor kind, then I am not doing any operation
+        # if node.name_op == "static_rnn":
+          # print(type(node.output), len(node.output), len(node.output[0]), id(node.output[0][-1]), "SEE BABAY")
+      elif isinstance(node, ops.Tensor):       # If it is of tensor kind, then I am not doing any operation
         if node in gph.placeholders:
           # print(feed_dict.keys(), node, node == list(feed_dict.keys())[0], id(node), id(list(feed_dict.keys())[0]), "THIS IS FEED_DICT")
           node.output = ops.Tensor(feed_dict[node])      # this is a numpy ndarray shape, so return it    # OLD : a tensor of this shape
@@ -855,15 +855,43 @@ class BaseSession(SessionInterface):
           node.output = node      # node is already a tensor, so just return it
         elif node in gph.identity_placeholders:
           node.output = node.shape      # this has been constructed just to support StackOverFlow/UT-2/fixed
+        # elif node in gph.operation:
+        # node.output = 
+        
         else:
-          print(node in gph.placeholders, node in gph.variables, node in gph.operations, node in gph.constants, "SEE THIS")
-          print("This is the type of tensor:{}".format(node))
-          raise NotImplementedError
+          def search_recursive_operations(body, node):
+              if isinstance(body, (list, tuple)):
+                for itk in body:
+                  req = search_recursive_operations(itk, node); print(len(body), itk, "SEE ME ASLo", req)
+                  if req:
+                    return True
+              elif isinstance(body, ops.Tensor):   # if it is not a (list, tuple), then it should be a tensor
+                print(id(body), id(node), "IDS's here")
+                if body == node:
+                  print("WE FOUND IT111"); return True
+              else:
+                raise NotImplementedError("This is the type of elements:{}".format(body))
+              return False
+          res = False
+          # for ps in gph.operations:
+          #   this = ps.fwd_func(*ps.input_nodes)#; print(type(this), ps.name_op ,"see these SAHIL")
+          #   if isinstance(this, (list, tuple)) and ps.name_op == "static_rnn":
+          #     print(ps.name_op ,"see these SAHIL11")
+          #     res = search_recursive_operations(this, node)   # I am using short circuiting here, only if it is tuple or list, then it goes into the second one
+          #     if res:
+          #       break
+          if not res:
+            print(node in gph.placeholders, node in gph.variables, node in gph.operations, node in gph.constants, "SEE THIS")
+            raise NotImplementedError("This is the type of tensor:{}".format(node))
+          else:
+            node.output = node.shape; print("WE FOUND IT")
       elif isinstance(node, int):   # like depth in `tf.one_hot` case
         pass      # I don't think you need to do anything more
+      elif isinstance(node, list):
+        if node in gph.child_operations:
+          node.output = node    # lets see if this works for outputs
       else:
-        print("This is the type:{}".format(type(node)))
-        raise NotImplementedError
+        raise NotImplementedError("This is the type:{}".format(type(node)))
 
     return fetches.output
 
@@ -989,7 +1017,7 @@ class BaseSession(SessionInterface):
         else:
           raise NotImplementedError("This is the type of value:{}".format(type(value))) 
         if isinstance(value, np.ndarray):  
-          shape_value = value.shape   # it is is numpy thing, lets think about other later
+          shape_value = list(value.shape)   # it is is numpy thing, lets think about other later
         elif isinstance(value, list):
           if all(isinstance(v, np.ndarray) for v in value):
             shape_value = [len(value)] + list(value[0].shape)  # two lists can be added ; shape_value.insert(0, len(value))
@@ -1017,9 +1045,9 @@ class BaseSession(SessionInterface):
     print("FEED_DICT IS OKAY", feed_dict_shapes)    # I expect the feed_dict_shape to change as it is mutable object (passed by reference)
 
     result = []
-    if isinstance(fetches, list):
+    if isinstance(fetches, list):# and len(fetches) <= 2:   # onpy upto 2 
       for i in fetches:
-        result.append(self.evaluate_fetches(i, feed_dict_shapes))
+        result.append(self.evaluate_fetches(i, feed_dict_shapes))   # this will evaluate each operation individually
     else:
       result.append(self.evaluate_fetches(fetches, feed_dict_shapes))
 

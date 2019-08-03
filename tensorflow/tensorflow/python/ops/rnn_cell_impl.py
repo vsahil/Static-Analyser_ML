@@ -345,7 +345,16 @@ class LayerRNNCell(RNNCell):
     # Instead, it is up to subclasses to provide a proper build
     # method.  See the class docstring for more details.
     # print(inputs, state, "ME", self.state_size, self.output_size)
-    return (ops.Tensor([inputs.shape[0], self.output_size]), state)   
+    # you need to make them an our_Operation object
+    return ops.Tensor([inputs.shape[0], self.output_size])    # prolly don't need operation here as none of the inputs are our_operation
+    # def forward(inputs, state):       # this implicitly asserts isinstance(inputs, (Variable, ops.Tensor))
+    #   return ops.Tensor([inputs.shape[0], self.output_size])    # , state)    Not returning state as it creates no effect
+    
+    # this_operation = ops.our_Operation([inputs, state], ffnc=forward, name="rnn_+_call__")   # create a new operation object each time
+    # gph = ops.our_Graph.get_default_graph()
+    # gph.operations.append(this_operation)
+    # return this_operation
+
     # return base_layer.Layer.__call__(self, inputs, state, scope=scope, *args, **kwargs)
 
 
@@ -642,7 +651,7 @@ class BasicLSTMCell(LayerRNNCell):
     new_c = add(multiply(c, sigmoid(add(f, forget_bias_tensor))),
                 multiply(sigmoid(i), self._activation(j)))
     new_h = multiply(self._activation(new_c), sigmoid(o))
-
+    # print("I AM HERE", state, new_c, new_h, self._state_is_tuple)
     if self._state_is_tuple:
       new_state = LSTMStateTuple(new_c, new_h)
     else:

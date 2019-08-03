@@ -294,7 +294,7 @@ class Tensor(_TensorLike):
     self.dtype = dtype
     # if not isinstance(op, Operation):
     #   raise TypeError("op needs to be an Operation: %s" % op)
-    self._op = op
+    # self._op = op
     # self._value_index = value_index
     # self._dtype = dtypes.as_dtype(dtype)
 
@@ -5611,7 +5611,7 @@ class our_Operation():
       self.fwd_func = ffnc
       self.name_op = name   # name of operation is good
     
-      our_Graph.get_default_graph().operations.append(self)
+      # our_Graph.get_default_graph().operations.append(self)   # this is the reason for twice occurence, remove it
 
     def __mul__(self, other):
       if isinstance(other, our_Operation):
@@ -5640,6 +5640,29 @@ class our_Operation():
       session = get_default_session()
       return session.run(self, feed_dict)
 
+    # def __iter__(self):
+    #   res = self.fwd_func(*self.input_nodes)    # should be a tuple for static rnn
+    #   for i in res:
+    #     yield i 
+
+    def __getitem__(self, index):   # self is in operation, but if return its element then it loses its essence of Operation object
+      def forward(self):
+        if isinstance(self, our_Operation):
+          return self.fwd_func(*self.input_nodes)[index]
+        elif isinstance(self, list):
+          return self[index]
+        else:
+          raise NotImplementedError("self: {}, type(self):{}".format(self, type(self)))
+      this_operation = our_Operation([self], ffnc=forward, name="__iter__")   # create a new operation object each time
+      gph = our_Graph.get_default_graph()
+      gph.operations.append(this_operation)
+      return this_operation
+
+
+# class sub_our_operation(our_Operation):
+#     def __init__(self, a):
+#       super().__init__(self, )
+
 
 class our_Graph():
 
@@ -5649,6 +5672,7 @@ class our_Graph():
     self.variables = []
     self.constants = []
     self.identity_placeholders = []
+    # self.child_operations = []
 
   # def as_default(self):
   #   # global _default_graph

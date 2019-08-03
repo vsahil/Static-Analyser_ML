@@ -2160,8 +2160,13 @@ def matmul(a,
   assert(transpose_a == transpose_b == adjoint_a == adjoint_b == a_is_sparse == b_is_sparse == False)    # as we have not yet implemented them
   if isinstance(a, (ops.Tensor, variables.Variable)) and isinstance(b, (ops.Tensor, variables.Variable)):
     shape1 = a.shape; shape2 = b.shape
-  elif isinstance(a, ops.our_Operation) and isinstance(b, variables.Variable):
-    shape1 = a.fwd_func(*a.input_nodes).shape; shape2 = b.shape
+  elif isinstance(a, ops.our_Operation) and isinstance(b, (variables.Variable, ops.Tensor)):
+    obj1 = a.fwd_func(*a.input_nodes)
+    if isinstance(obj1, ops.Tensor):
+      shape1 = obj1.shape
+    elif isinstance(obj1, ops.our_Operation):
+      shape1 = obj1.fwd_func(*obj1.input_nodes).shape
+    shape2 = b.shape
   else:
     print(type(a), type(b), "These are the types")
     raise NotImplementedError
@@ -2181,10 +2186,15 @@ def matmul(a,
     # assert(isinstance(a, list) and isinstance(b, list))
     if isinstance(a, (ops.Tensor, variables.Variable)) and isinstance(b, (ops.Tensor, variables.Variable)):
       shape1 = a.shape; shape2 = b.shape
-    elif isinstance(a, ops.our_Operation) and isinstance(b, variables.Variable):
-      shape1 = a.fwd_func(*a.input_nodes).shape; shape2 = b.shape
+    elif isinstance(a, ops.our_Operation) and isinstance(b, (variables.Variable, ops.Tensor)):
+      obj1 = a.fwd_func(*a.input_nodes)
+      if isinstance(obj1, ops.Tensor):
+        shape1 = obj1.shape
+      elif isinstance(obj1, ops.our_Operation):
+        shape1 = obj1.fwd_func(*obj1.input_nodes).shape
+      shape2 = b.shape
     else:
-      print(type(a), type(b), "These are the types")
+      print(type(a), type(b), b, "These are the types")
       raise NotImplementedError
     assert(len(shape1) >= 2 and len(shape2) >= 2), "These are the minimum required shape dimensions"
     assert (shape1[-1] == shape2[-2]), "Not conformable!"
@@ -2197,18 +2207,7 @@ def matmul(a,
   gph.operations.append(this_operation)
   return this_operation
 
-  # delte = True
-  # if delte:
-  #   collections = [ops.GraphKeys.OPS]
-  #   # self._graph_key = ops.get_default_graph()._graph_key
-  #   # print(collections, "SEE INSIDE MATMUL", final)    # adds to default graph
-  #   gph = ops.our_Graph.get_default_graph()
-  #   gph.add_to_collections(collections, our)
   
-  
-  
-  
-
   # with ops.name_scope(name, "MatMul", [a, b]) as name:
   #   if transpose_a and adjoint_a:
   #     raise ValueError("Only one of transpose_a and adjoint_a can be True.")

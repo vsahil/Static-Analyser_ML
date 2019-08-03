@@ -1655,6 +1655,7 @@ class Saver(object):
       RuntimeError: If save and restore ops weren't built.
     """
     # pylint: enable=line-too-long
+    return # Do nothing
     if not self._is_built and not context.executing_eagerly():
       raise RuntimeError(
           "`build()` should be called before save if defer_build==True")

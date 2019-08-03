@@ -70,7 +70,11 @@ def random_normal(shape,
   """
   # we can out asserts on shapes of mean and shape, don't need now
 
-  return ops.Tensor(shape, dtype)   # output shape is shape
+  if isinstance(shape, list):
+    return ops.Tensor(shape, dtype)
+  else:
+    raise NotImplementedError("this is the shape {} and its type{}".format(shape, type(shape)))
+  
   # try:
   #   assert(shape != None)
   # except AssertionError as e:
@@ -177,21 +181,22 @@ def truncated_normal(shape,
   """
   # print(shape, type(shape), "dekdei")
   
-  def forward(shape):
-    # if not isinstance(shape, ops.Tensor):
-        # return ops.Tensor(shape, dtype)
-    if isinstance(shape, list):
-      return ops.Tensor(shape, dtype)
-    else:
-      raise NotImplementedError("this is the shape {} and its type{}".format(shape, type(shape)))
-    # print(shape, type(shape), shape.shape, "dekdei")
-    # return ops.Tensor(shape.shape, dtype)     
+  if isinstance(shape, list):
+    return ops.Tensor(shape, dtype)
+  else:
+    raise NotImplementedError("this is the shape {} and its type{}".format(shape, type(shape)))  
   
   
-  this_operation = ops.our_Operation([shape], ffnc=forward, name="truncated_normal")   # create a new operation object each time
-  gph = ops.our_Graph.get_default_graph()
-  gph.operations.append(this_operation)
-  return this_operation
+  # def forward(shape):
+  #   if isinstance(shape, list):
+  #     return ops.Tensor(shape, dtype)
+  #   else:
+  #     raise NotImplementedError("this is the shape {} and its type{}".format(shape, type(shape)))  
+  
+  # this_operation = ops.our_Operation([shape], ffnc=forward, name="truncated_normal")   # create a new operation object each time
+  # gph = ops.our_Graph.get_default_graph()
+  # gph.operations.append(this_operation)
+  # return this_operation
 
   
   # Returns a tensor of the same shape as input
