@@ -212,7 +212,19 @@ def expand_dims(input, axis=None, name=None, dim=None):
     if axis is not None:
       raise ValueError("can't specify both 'dim' and 'axis'")
     axis = dim
-  return gen_array_ops.expand_dims(input, axis, name)
+  
+  # shape is a list for us, just insert 1 in postion specified by axis
+  def forward(input):
+    output_shape = input.shape[:]
+    output_shape.insert(axis, 1)    # this is in_place operation
+    return ops.Tensor(output_shape)
+  
+  this_operation = ops.our_Operation([input], ffnc=forward, name="expand_dims")
+  gph = ops.our_Graph.get_default_graph()
+  gph.operations.append(this_operation)
+  return this_operation
+
+  # return gen_array_ops.expand_dims(input, axis, name)
 
 
 # pylint: enable=redefined-builtin,protected-access
