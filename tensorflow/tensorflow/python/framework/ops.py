@@ -322,7 +322,7 @@ class Tensor(_TensorLike):
   def __add__(self, other):
     # print(self, type(self), type(other), self.shape, other.shape, "YEAH RADD INSIDE TENSOR CLASS")
     # initially other was of type Variable, but here it is of type tensor and you will see only this, 
-    assert(len(other.shape) == 1), "only doing it for the bias in NN case"
+    assert(len(other.shape) == 1), "only doing it for bias in NN case"
     assert(self.shape[-1] == other.shape[0]), "last dimension should be same"
     return self     # this is output shape
     # no change in shape, remains same
@@ -523,9 +523,9 @@ class Tensor(_TensorLike):
   #   """
   #   return self.shape.ndims
 
-  # def get_shape(self):
-  #   """Alias of Tensor.shape."""
-  #   return self.shape
+  def get_shape(self):
+    """Alias of Tensor.shape."""
+    return self.shape
 
   def set_shape(self, shape):
     """Updates the shape of this tensor.

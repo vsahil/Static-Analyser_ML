@@ -296,13 +296,14 @@ def shape(input, name=None, out_type=dtypes.int32):
   Returns:
     A `Tensor` of type `out_type`.
   """
-  # return input.shape    # not sure how is this going to affect later, returning non-tensor
-  if "dtype:" in str(out_type):
-    # print("hello1234", "dtype:" in str(out_type), str(out_type), input.dtype)
-    return ops.Tensor(input.shape, input.dtype)    # it is an tensor, it would return the shape as a tensor, so it is not same as returning input.shape
-  else:
-    # print("hello", "dtype:" in str(out_type), str(out_type))
-    return ops.Tensor(input.shape, out_type)
+
+  return ops.Tensor(input.shape)
+  
+  # if "dtype:" in str(out_type):
+  #   return ops.Tensor(input.shape, input.dtype)    # it is an tensor, it would return the shape as a tensor, so it is not same as returning input.shape
+  # else:
+  #   return ops.Tensor(input.shape, out_type)
+  
   # return shape_internal(input, name, optimize=True, out_type=out_type)
 
 
@@ -952,27 +953,28 @@ def stack(values, axis=0, name="stack"):
   Raises:
     ValueError: If `axis` is out of the range [-(R+1), R+1).
   """
-  assert(isinstance(values, list) and axis == 0 and len(values) == 2)
-  if not values[0].shape and not values[1].shape:
-    return ops.Tensor(None, None)
+  assert(isinstance(values, list) and axis == 0)
+  if len(values) == 2 and not values[0].shape and not values[1].shape:    # done for Ut-7/playing.py
+    return ops.Tensor(None, None)     # not an operation
   else:
-    print(values[0].shape, values[1].shape); assert False
+    print(values[0].shape, values[1].shape)
+    raise NotImplementedError
   
-  if axis == 0:
-    try:
-      # If the input is a constant list, it can be converted to a constant op
-      return ops.convert_to_tensor(values, name=name)
-    except (TypeError, ValueError):
-      pass  # Input list contains non-constant tensors
+  # if axis == 0:
+  #   try:
+  #     # If the input is a constant list, it can be converted to a constant op
+  #     return ops.convert_to_tensor(values, name=name)
+  #   except (TypeError, ValueError):
+  #     pass  # Input list contains non-constant tensors
 
-  value_shape = ops.convert_to_tensor(values[0], name=name).get_shape()
-  if value_shape.ndims is not None:
-    expanded_num_dims = value_shape.ndims + 1
-    if axis < -expanded_num_dims or axis >= expanded_num_dims:
-      raise ValueError("axis = %d not in [%d, %d)" % (axis, -expanded_num_dims,
-                                                      expanded_num_dims))
+  # value_shape = ops.convert_to_tensor(values[0], name=name).get_shape()
+  # if value_shape.ndims is not None:
+  #   expanded_num_dims = value_shape.ndims + 1
+  #   if axis < -expanded_num_dims or axis >= expanded_num_dims:
+  #     raise ValueError("axis = %d not in [%d, %d)" % (axis, -expanded_num_dims,
+  #                                                     expanded_num_dims))
 
-  return gen_array_ops.pack(values, axis=axis, name=name)
+  # return gen_array_ops.pack(values, axis=axis, name=name)
 
 
 # pylint: disable=invalid-name

@@ -183,6 +183,8 @@ def truncated_normal(shape,
   
   if isinstance(shape, list):
     return ops.Tensor(shape, dtype)
+  elif isinstance(shape, ops.Tensor):
+    return shape    # there is no change in shape
   else:
     raise NotImplementedError("this is the shape {} and its type{}".format(shape, type(shape)))  
   
@@ -266,7 +268,7 @@ def random_uniform(shape,
   gph = ops.our_Graph.get_default_graph()
   gph.operations.append(this_operation)
   return this_operation
-  
+
   # dtype = dtypes.as_dtype(dtype)
   # if dtype not in (dtypes.float16, dtypes.bfloat16, dtypes.float32,
   #                  dtypes.float64, dtypes.int32, dtypes.int64):
