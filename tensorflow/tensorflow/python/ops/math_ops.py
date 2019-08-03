@@ -1475,7 +1475,6 @@ def reduce_sum(input_tensor,
     keepdims = False
   assert(not(keepdims) and not(reduction_indices)), "current implementation"
   if axis:
-    raise NotImplementedError
     assert(all(len(input_tensor.shape) > i > -len(input_tensor.shape)) for i in axis), "Must be in the range `[-rank(input_tensor), rank(input_tensor))`"
   
   # Whatever be the input, the output is going to be an our_Operation object
@@ -1488,6 +1487,10 @@ def reduce_sum(input_tensor,
       shap = input_t.shape
     if shap:
       result = 1
+    if axis and shap:
+      result = shap[:]
+      for ax in axis:
+        result.pop(ax)
     return ops.Tensor(result)
     
   this_operation = ops.our_Operation([input_tensor], ffnc=forward, name="reduce_sum")
@@ -2158,15 +2161,20 @@ def matmul(a,
       are both set to True.
   """
   assert(transpose_a == transpose_b == adjoint_a == adjoint_b == a_is_sparse == b_is_sparse == False)    # as we have not yet implemented them
-  if isinstance(a, (ops.Tensor, variables.Variable)) and isinstance(b, (ops.Tensor, variables.Variable)):
-    shape1 = a.shape; shape2 = b.shape
-  elif isinstance(a, ops.our_Operation) and isinstance(b, (variables.Variable, ops.Tensor)):
+  if isinstance(a, (ops.Tensor, variables.Variable)):
+    shape1 = a.shape
+  elif isinstance(a, ops.our_Operation):
     obj1 = a.fwd_func(*a.input_nodes)
     if isinstance(obj1, ops.Tensor):
       shape1 = obj1.shape
     elif isinstance(obj1, ops.our_Operation):
       shape1 = obj1.fwd_func(*obj1.input_nodes).shape
-    shape2 = b.shape
+  
+  if isinstance(b, (ops.Tensor, variables.Variable)):
+    shape2 = b.shape  
+  elif isinstance(b, ops.our_Operation):
+    shape2 = b.fwd_func(*b.input_nodes).shape
+
   else:
     print(type(a), type(b), "These are the types")
     raise NotImplementedError
@@ -2184,15 +2192,20 @@ def matmul(a,
   # print(a, "dekho")
   def forward(a, b):    # here a and b are just lists
     # assert(isinstance(a, list) and isinstance(b, list))
-    if isinstance(a, (ops.Tensor, variables.Variable)) and isinstance(b, (ops.Tensor, variables.Variable)):
-      shape1 = a.shape; shape2 = b.shape
-    elif isinstance(a, ops.our_Operation) and isinstance(b, (variables.Variable, ops.Tensor)):
+    if isinstance(a, (ops.Tensor, variables.Variable)):
+      shape1 = a.shape
+    elif isinstance(a, ops.our_Operation):
       obj1 = a.fwd_func(*a.input_nodes)
       if isinstance(obj1, ops.Tensor):
         shape1 = obj1.shape
       elif isinstance(obj1, ops.our_Operation):
         shape1 = obj1.fwd_func(*obj1.input_nodes).shape
-      shape2 = b.shape
+    
+    if isinstance(b, (ops.Tensor, variables.Variable)):
+      shape2 = b.shape  
+    elif isinstance(b, ops.our_Operation):
+      shape2 = b.fwd_func(*b.input_nodes).shape
+
     else:
       print(type(a), type(b), b, "These are the types")
       raise NotImplementedError
@@ -2494,7 +2507,10 @@ def sigmoid(x, name=None):
   Equivalent to np.scipy.special.expit
   @end_compatibility
   """
-  return ops.Tensor(x.shape)    # same shape; no dtype
+  x.name_op = x.name_op + "_+_sigmoid"    # asserting that is it an operation object 
+  return x   # output shape is same as input shape, just returning object
+  
+  # return ops.Tensor(x.shape)    # same shape; no dtype
 
   # with ops.name_scope(name, "Sigmoid", [x]) as name:
   #   x = ops.convert_to_tensor(x, name="x")
@@ -3391,19 +3407,55 @@ def add(x, y, name=None):
   Returns:
     A `Tensor`. Has the same type as `x`.
   """
-  a = x.shape
-  b = y.shape
+  
+  if isinstance(x, ops.our_Operation):
+    a = x.fwd_func(*x.input_nodes).shape
+  else:
+    a = x.shape   # implicit tensor or variable
+  
+  if isinstance(y, ops.our_Operation):
+    b = y.fwd_func(*y.input_nodes).shape
+  else:
+    b = y.shape   # implicit tensor or variable
+  
+  # don't calculate the output_shape here, only inside forward
   if len(a) == len(b):
     assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1"
-    output_shape = [max(a[i], b[i]) for i in range(len(a))]
+    # output_shape = [max(a[i], b[i]) for i in range(len(a))]
   elif len(a) > len(b):
     assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "must be either same value or one of them should be 1"
-    output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
+    # output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
   else:
     assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1"
-    output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
+    # output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
   
-  return ops.Tensor(output_shape)   # no dtype
+  def forward(x, y):
+    if isinstance(x, ops.our_Operation):
+      a = x.fwd_func(*x.input_nodes).shape
+    else:
+      a = x.shape   # implicit tensor or variable
+    
+    if isinstance(y, ops.our_Operation):
+      b = y.fwd_func(*y.input_nodes).shape
+    else:
+      b = y.shape   # implicit tensor or variable
+    
+    if len(a) == len(b):
+      assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1"
+      output_shape = [max(a[i], b[i]) for i in range(len(a))]
+    elif len(a) > len(b):
+      assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "must be either same value or one of them should be 1"
+      output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
+    else:
+      assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1"
+      output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
+   
+    return ops.Tensor(output_shape)   # no dtype
+
+  this_operation = ops.our_Operation([x, y], ffnc=forward, name="add")   # create a new operation object each time
+  gph = ops.our_Graph.get_default_graph()
+  gph.operations.append(this_operation)
+  return this_operation
 
   # _ctx = _context._context
   # if _ctx is None or not _ctx._eager_context.is_eager:

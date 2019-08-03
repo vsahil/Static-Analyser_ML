@@ -1965,13 +1965,20 @@ def softmax_cross_entropy_with_logits(
   
   def forward(logits, labels):
     if isinstance(logits, ops.our_Operation):   # the input of this must be an our_Operation object
-      shap = logits.fwd_func(*logits.input_nodes).shape
+      a = logits.fwd_func(*logits.input_nodes).shape
     else:
-      shap = logits.shape   # this will implicitly assert that it is either a variable or Tensor
-    if all(i for i in labels.shape):    # If this is not None, only then check shape
-      # print(shap, labels.shape, "CHECK")
-      # for i in range(len(labels.shape)):    # limited by shape of labels, no 
-      assert(shap == labels.shape), "`logits` and `labels` must have the same shape"
+      a = logits.shape   # this will implicitly assert that it is either a variable or Tensor
+    b = labels.shape
+    if all(i for i in b):    # If this is not None, only then check shape
+      # print(a, b, "CHECK")      # BROADCASTING IMPLEMENTED
+      if len(a) == len(b):
+        assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1 for broadcastable shapes"
+      elif len(a) > len(b):
+        assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "must be either same value or one of them should be 1 for broadcastable shapes"
+      else:
+        assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1 for broadcastable shapes"
+      
+      # assert(shap == labels.shape), "`logits` and `labels` must have broadcastable shapes"
 
     return ops.Tensor(labels.shape[0])    # assuming first element of shape is the batchsize
   

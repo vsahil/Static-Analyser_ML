@@ -5613,6 +5613,24 @@ class our_Operation():
     
       # our_Graph.get_default_graph().operations.append(self)   # this is the reason for twice occurence, remove it
 
+    def __add__(self, other):   # just adding bias for now 
+      def forward(self, other):
+        if isinstance(self, our_Operation):
+          shape1 = self.fwd_func(*self.input_nodes).shape
+        else:
+          shape1 = self.shape
+        if isinstance(other, our_Operation):
+          shape2 = other.fwd_func(*other.input_nodes).shape
+        else:
+          shape2 = other.shape
+        assert(len(shape2) == 1)    # single rank bias, other wise we need to return `other` and not `self`
+        assert(shape1[-1] == shape2[-1]), "for adding of bias last element of shape must be same %s %s"%(shape1, shape2)
+        return Tensor(shape1)   # `self` returns the operation and hence can't do it, need to return a Tensor
+      this_operation = our_Operation([self, other], ffnc=forward, name="__add__")   # create a new operation object each time
+      gph = our_Graph.get_default_graph()
+      gph.operations.append(this_operation)
+      return this_operation
+
     def __mul__(self, other):
       if isinstance(other, our_Operation):
         shape1 = self.fwd_func(*self.input_nodes).shape; shape2 = other.fwd_func(*other.input_nodes).shape
@@ -5633,17 +5651,12 @@ class our_Operation():
       return self    # this is output shape  
 
     def __repr__(self):
-      return "<Operation object {}>".format(self.name_op) #, [i.name_op if isinstance(i, our_Operation) else i for i in self.input_nodes])
+      return "<Operation:{}>".format(self.name_op) #, [i.name_op if isinstance(i, our_Operation) else i for i in self.input_nodes])
     
     # should be same as calling the session on this
     def eval(self, feed_dict):
       session = get_default_session()
       return session.run(self, feed_dict)
-
-    # def __iter__(self):
-    #   res = self.fwd_func(*self.input_nodes)    # should be a tuple for static rnn
-    #   for i in res:
-    #     yield i 
 
     def __getitem__(self, index):   # self is in operation, but if return its element then it loses its essence of Operation object
       def forward(self):
@@ -5653,15 +5666,12 @@ class our_Operation():
           return self[index]
         else:
           raise NotImplementedError("self: {}, type(self):{}".format(self, type(self)))
-      this_operation = our_Operation([self], ffnc=forward, name="__iter__")   # create a new operation object each time
+      this_operation = our_Operation([self], ffnc=forward, name="__getitem__")   # create a new operation object each time
       gph = our_Graph.get_default_graph()
       gph.operations.append(this_operation)
       return this_operation
 
 
-# class sub_our_operation(our_Operation):
-#     def __init__(self, a):
-#       super().__init__(self, )
 
 
 class our_Graph():

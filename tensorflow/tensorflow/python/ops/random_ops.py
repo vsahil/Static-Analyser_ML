@@ -259,8 +259,14 @@ def random_uniform(shape,
     ValueError: If `dtype` is integral and `maxval` is not specified.
   """
   # assert(isinstance(dtype, dtype.float32)), "Other not implemented"
-  return ops.Tensor(shape, dtype)   # output shape is shape
+  def forward():
+    return ops.Tensor(shape, dtype)   # output shape is shape
 
+  this_operation = ops.our_Operation([], ffnc=forward, name="random_uniform")
+  gph = ops.our_Graph.get_default_graph()
+  gph.operations.append(this_operation)
+  return this_operation
+  
   # dtype = dtypes.as_dtype(dtype)
   # if dtype not in (dtypes.float16, dtypes.bfloat16, dtypes.float32,
   #                  dtypes.float64, dtypes.int32, dtypes.int64):

@@ -301,7 +301,21 @@ def embedding_lookup(
   """
 
   assert(params and partition_strategy == "mod" and not max_norm), "params must not be empty and div is not implemented and max_norm is None"
-  return ops.Tensor(ids.shape + params.shape[1:])    # this is the shape of the emdedding layer
+  def forward(ids, params):
+    if isinstance(ids, ops.our_Operation):
+      shap1 = ids.fwd_func(*ids.input_nodes).shape
+    else:
+      shap1 = ids.shape   # tensor or variable
+    if isinstance(params, ops.our_Operation):
+      shap2 = params.fwd_func(*params.input_nodes).shape
+    else:
+      shap2 = params.shape   # tensor or variable
+    return ops.Tensor(shap1 + shap2[1:])    # this is the shape of the emdedding layer
+
+  this_operation = ops.our_Operation([ids, params], ffnc=forward, name="embedding_lookup")   # create a new operation object each time
+  gph = ops.our_Graph.get_default_graph()
+  gph.operations.append(this_operation)
+  return this_operation
 
   # return _embedding_lookup_and_transform(
   #     params=params,
