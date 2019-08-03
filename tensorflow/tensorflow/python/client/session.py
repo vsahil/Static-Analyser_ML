@@ -1034,7 +1034,9 @@ class BaseSession(SessionInterface):
     
     if not isinstance(fetches, list):
       assert(len(result)==1)
-      return result[0]
+      result = result[0]
+
+    return result
 
     # try:
     #   result = self._run(None, fetches, feed_dict, options_ptr, run_metadata_ptr)

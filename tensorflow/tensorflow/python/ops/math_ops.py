@@ -508,7 +508,18 @@ def square(x, name=None):
   Returns:
     A `Tensor` or `SparseTensor`. Has the same type as `x`.
   """
-  return ops.Tensor(x.shape)    # this is the shape
+  def forward(x):     # no y as it can be taken from above
+    if isinstance(x, ops.our_Operation):
+      shap = x.fwd_func(*x.input_nodes).shape
+    else:
+      shap = x.shape
+    return ops.Tensor(shap)    # this is the shape of returned tensor
+
+  this_operation = ops.our_Operation([x], ffnc=forward, name="square")
+  gph = ops.our_Graph.get_default_graph()
+  gph.operations.append(this_operation)
+  return this_operation
+  
   # with ops.name_scope(name, "Square", [x]) as name:
   #   if isinstance(x, sparse_tensor.SparseTensor):
   #     x_square = gen_math_ops.square(x.values, name=name)
@@ -3341,18 +3352,24 @@ def equal(x, y, name=None):
   
   def forward(x, y):
     if isinstance(x, ops.our_Operation):
-      shape1 = x.fwd_func(*x.input_nodes).shape
+      a = x.fwd_func(*x.input_nodes).shape
     else:
-      shape1 = x.shape  
+      a = x.shape  
     if isinstance(y, ops.our_Operation):
-      shape2 = y.fwd_func(*y.input_nodes).shape
+      b = y.fwd_func(*y.input_nodes).shape
     else:
-      shape2 = y.shape  
+      b = y.shape  
   
-    if(shape1 != shape2):
-      raise NotImplementedError("Implement broadcasting, actually just for math.equal not equal")    
+    if(a != b):
+      if len(a) == len(b):
+        assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+      elif len(a) > len(b):
+        assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
+      else:
+        assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+
         
-    return ops.Tensor(shape=shape1)
+    return ops.Tensor(shape=a)
 
     
   this_operation = ops.our_Operation([x, y], ffnc=forward, name="equal")
@@ -3404,7 +3421,6 @@ def equal(x, y, name=None):
   # return _result
 
 
-
 @tf_export('add')
 def add(x, y, name=None):
   r"""Returns x + y element-wise.
@@ -3433,13 +3449,13 @@ def add(x, y, name=None):
   
   # don't calculate the output_shape here, only inside forward
   if len(a) == len(b):
-    assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1"
+    assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
     # output_shape = [max(a[i], b[i]) for i in range(len(a))]
   elif len(a) > len(b):
-    assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "must be either same value or one of them should be 1"
+    assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
     # output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
   else:
-    assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1"
+    assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
     # output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
   
   def forward(x, y):
@@ -3454,13 +3470,13 @@ def add(x, y, name=None):
       b = y.shape   # implicit tensor or variable
     
     if len(a) == len(b):
-      assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1"
+      assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
       output_shape = [max(a[i], b[i]) for i in range(len(a))]
     elif len(a) > len(b):
-      assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "must be either same value or one of them should be 1"
+      assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
       output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
     else:
-      assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1"
+      assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
       output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
    
     return ops.Tensor(output_shape)   # no dtype
@@ -3490,6 +3506,105 @@ def add(x, y, name=None):
   #     return _result
   #   except _core._FallbackException:
   #     return add_eager_fallback(
+  #         x, y, name=name, ctx=_ctx)
+  #   except _core._NotOkStatusException as e:
+  #     if name is not None:
+  #       message = e.message + " name: " + name
+  #     else:
+  #       message = e.message
+  #     _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+@tf_export('greater')
+def greater(x, y, name=None):
+  r"""Returns the truth value of (x > y) element-wise.
+
+  *NOTE*: `Greater` supports broadcasting. More about broadcasting
+  [here](http://docs.scipy.org/doc/numpy/user/basics.broadcasting.html)
+
+  Args:
+    x: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `uint8`, `int16`, `int8`, `int64`, `bfloat16`, `uint16`, `half`, `uint32`, `uint64`.
+    y: A `Tensor`. Must have the same type as `x`.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor` of type `bool`.
+  """
+  
+  if isinstance(x, ops.our_Operation):
+    a = x.fwd_func(*x.input_nodes).shape
+  else:
+    a = x.shape   # implicit tensor or variable
+  
+  if isinstance(y, ops.our_Operation):
+    b = y.fwd_func(*y.input_nodes).shape
+  elif isinstance(y, ops.Tensor):
+    b = y.shape
+  elif isinstance(y, (int, float)):
+    return x      # this means type of x will be preserved, either tensor or Operation, as that is meant above this, and not make this as Operation to save costs
+  else:
+    raise NotImplementedError("this is the type of y:{}".format(type(y)))
+    
+  
+   # BROADCASTING IMPLEMENTED
+  
+  if len(a) == len(b):
+    assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+  elif len(a) > len(b):
+    assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
+  else:
+    assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+  
+  def forward(x, y):
+    if isinstance(x, ops.our_Operation):
+      a = x.fwd_func(*x.input_nodes).shape
+    else:
+      a = x.shape   # implicit tensor or variable
+    
+    if isinstance(y, ops.our_Operation):
+      b = y.fwd_func(*y.input_nodes).shape
+    else:
+      b = y.shape   # implicit tensor or variable
+    
+    if len(a) == len(b):      # BROADCASTING IMPLEMENTED
+      assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+      output_shape = [max(a[i], b[i]) for i in range(len(a))]
+    elif len(a) > len(b):
+      assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
+      output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
+    else:
+      assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+      output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
+   
+    return ops.Tensor(output_shape)   # no dtype
+
+  this_operation = ops.our_Operation([x, y], ffnc=forward, name="greater")   # create a new operation object each time
+  gph = ops.our_Graph.get_default_graph()
+  gph.operations.append(this_operation)
+  return this_operation
+
+
+
+  # _ctx = _context._context
+  # if _ctx is None or not _ctx._eager_context.is_eager:
+  #   _, _, _op = _op_def_lib._apply_op_helper(
+  #       "Greater", x=x, y=y, name=name)
+  #   _result = _op.outputs[:]
+  #   _inputs_flat = _op.inputs
+  #   _attrs = ("T", _op.get_attr("T"))
+  #   _execute.record_gradient(
+  #     "Greater", _inputs_flat, _attrs, _result, name)
+  #   _result, = _result
+  #   return _result
+
+  # else:
+  #   try:
+  #     _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+  #       _ctx._context_handle, _ctx._eager_context.device_name, "Greater",
+  #       name, _ctx._post_execution_callbacks, x, y)
+  #     return _result
+  #   except _core._FallbackException:
+  #     return greater_eager_fallback(
   #         x, y, name=name, ctx=_ctx)
   #   except _core._NotOkStatusException as e:
   #     if name is not None:

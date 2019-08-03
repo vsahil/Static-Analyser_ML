@@ -363,6 +363,8 @@ class Tensor(_TensorLike):
     return self
 
   def __sub__(self, other):   # implementing it for activation - Y in UT-10, Y.shape = None
+    if isinstance(other, our_Operation):
+      return NotImplemented      # for our_Operation should go to that class
     assert(other.shape == None)
     return Tensor(None)   # unknown shape
 
@@ -5625,13 +5627,13 @@ class our_Operation():
           b = other.shape
         
         if len(a) == len(b):
-          assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1"
+          assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
           output_shape = [max(a[i], b[i]) for i in range(len(a))]
         elif len(a) > len(b):
-          assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "must be either same value or one of them should be 1"
+          assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
           output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
         else:
-          assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1"
+          assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
           output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
    
         return Tensor(output_shape)   # no dtype
@@ -5653,13 +5655,13 @@ class our_Operation():
           b = other.shape
         
         if len(a) == len(b):
-          assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1"
+          assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
           output_shape = [max(a[i], b[i]) for i in range(len(a))]
         elif len(a) > len(b):
-          assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "must be either same value or one of them should be 1"
+          assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
           output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
         else:
-          assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1"
+          assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
           output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
    
         return Tensor(output_shape)   # no dtype
@@ -5669,6 +5671,35 @@ class our_Operation():
       gph.operations.append(this_operation)
       return this_operation
 
+    def __rsub__(self, other):    # this means other is tensor here; you still to make it operation as tensor can be placeholder
+      def forward(self, other):
+        if isinstance(self, our_Operation):
+          a = self.fwd_func(*self.input_nodes).shape
+        else:
+          a = self.shape
+        # if isinstance(other, our_Operation):
+        #   b = other.fwd_func(*other.input_nodes).shape
+        # else:
+        b = other.shape
+        
+        if len(a) == len(b):
+          assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+          output_shape = [max(a[i], b[i]) for i in range(len(a))]
+        elif len(a) > len(b):
+          assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
+          output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
+        else:
+          assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+          output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
+   
+        return Tensor(output_shape)   # no dtype
+
+      this_operation = our_Operation([self, other], ffnc=forward, name="__rsub__")   # create a new operation object each time
+      gph = our_Graph.get_default_graph()
+      gph.operations.append(this_operation)
+      return this_operation
+
+    
     def __mul__(self, other):
       if isinstance(other, our_Operation):
         shape1 = self.fwd_func(*self.input_nodes).shape; shape2 = other.fwd_func(*other.input_nodes).shape
@@ -5701,7 +5732,7 @@ class our_Operation():
     def __repr__(self):
       return "<Operation:{}>".format(self.name_op) #, [i.name_op if isinstance(i, our_Operation) else i for i in self.input_nodes])
     
-    # should be same as calling the session on this
+    # should be same as calling the session on `self`
     def eval(self, feed_dict):
       session = get_default_session()
       return session.run(self, feed_dict)

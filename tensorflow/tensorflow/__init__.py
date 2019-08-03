@@ -25,7 +25,7 @@ from tensorflow.python import pywrap_tensorflow  # pylint: disable=unused-import
 # pylint: disable=wildcard-import
 from tensorflow.tools.api.generator.api import *
 from tensorflow.python.framework.tensor_shape import reshape    #, conv2d, relu  these work without importing
-# in math_ops : changed the log, and, equal function      # somehow I don't need to explicitly import them, maybe due to export, try relu which is exported - yes relu, but reshape doesn't work
+# in math_ops : changed the log, and, equal function, greater      # somehow I don't need to explicitly import them, maybe due to export, try relu which is exported - yes relu, but reshape doesn't work
 # from tensorflow.tools.api.generator.api import *  # pylint: disable=redefined-builtin
 # pylint: enable=wildcard-import
 

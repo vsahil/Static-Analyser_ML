@@ -215,6 +215,9 @@ def get_api_init_text():
             continue
 
           if "add" in str(module_contents_name) and names[-1] == "add" and "gen_math_ops" in module.__name__:
+            continue
+
+          if "greater" in str(module_contents_name) and names[-1] == "greater" and "gen_math_ops" in module.__name__:
             # print(attr, module_contents_name, attr._tf_api_names, names, dest_module, id(attr), module.__name__, "HELLLO")
             # nw = dest_module + '.' + names[-1]
             # print(len(module_code_builder._dest_import_to_id), nw in module_code_builder._dest_import_to_id, "dekhio", len(module_code_builder._dest_import_to_id), nw in module_code_builder._dest_import_to_id)
