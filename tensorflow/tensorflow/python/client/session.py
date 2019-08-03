@@ -860,6 +860,8 @@ class BaseSession(SessionInterface):
       elif isinstance(node, list):
         if node in gph.child_operations:
           node.output = node    # lets see if this works for outputs
+      elif not node:    # If it is None object like "optimizer"
+        return None
       else:
         raise NotImplementedError("This is the type:{}".format(type(node)))
 
@@ -983,14 +985,11 @@ class BaseSession(SessionInterface):
       for key, value in feed.items():
         if isinstance(key, ops.Tensor):
           shape_key = key.shape
-        
         else:
           raise NotImplementedError("This is the type of value:{}".format(type(value))) 
         
-
         if isinstance(value, np.ndarray):  
-          shape_value = list(value.shape)   # it is is numpy thing, lets think about other later
-        
+          shape_value = list(value.shape)   # it is is numpy thing, lets think about other later        
         elif isinstance(value, list):
           if all(isinstance(v, np.ndarray) for v in value):
             shape_value = [len(value)] + list(value[0].shape)  # two lists can be added ; shape_value.insert(0, len(value))
@@ -1000,19 +999,18 @@ class BaseSession(SessionInterface):
             shape_value = list(np.array(value).shape)
           else:
             raise NotImplementedError("This is the kind of list value:{}".format(value))
-        
         elif isinstance(value, (int, float)):
           feed_dict_shapes[key] = value
           continue      # no need to check in this case
-        
         else:
           raise NotImplementedError("This is the type of value:{}".format(type(value)))
         
-        assert(len(shape_key) == len(shape_value)), "Shape of %s can't fit in %s"%(shape_value, shape_key)
-        for i,j in zip(shape_key, shape_value):
-          if i != j and i:    # if `i` is None it can take nay value
-            raise ValueError("Shape of %s can't fit in %s"%(shape_value, shape_key))
-        
+        if shape_key:   # if shape of placeholder is None, then it can take any shape
+          assert(len(shape_key) == len(shape_value)), "Shape of %s can't fit in %s"%(shape_value, shape_key)
+          for i,j in zip(shape_key, shape_value):
+            if i != j and i:    # if `i` is None it can take nay value
+              raise ValueError("Shape of %s can't fit in %s"%(shape_value, shape_key))
+          
         feed_dict_shapes[key] = shape_value   # this is the shape value
 
     # is this assert gets passed, we can store the shape of the feed_dict keys and use it later directly
@@ -1030,6 +1028,9 @@ class BaseSession(SessionInterface):
       result.append(self.evaluate_fetches(fetches, feed_dict_shapes))
 
     print("ALL IS WELL")
+    for r, j in enumerate(result):
+      if isinstance(j, ops.Tensor):   # I don't expect operations till end of a natural program, unlike debugging trace
+        result[r] = j.shape
     return result
 
     # try:
