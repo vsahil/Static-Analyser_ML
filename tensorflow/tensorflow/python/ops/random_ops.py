@@ -181,8 +181,8 @@ def truncated_normal(shape,
   """
   # print(shape, type(shape), "dekdei")
   
-  if isinstance(shape, list):
-    return ops.Tensor(shape, dtype)
+  if isinstance(shape, (list, tuple)):
+    return ops.Tensor(list(shape), dtype)
   elif isinstance(shape, ops.Tensor):
     return shape    # there is no change in shape
   else:

@@ -181,6 +181,8 @@ def constant(value, dtype=None, shape=None, name="Const", verify_shape=False):
     TypeError: if shape is incorrectly specified or unsupported.
   """
   
+  if not shape and isinstance(value, list):   # this is used only is shape is None
+    shape = list(np.array(value).shape)
   this_constant = ops.Tensor(shape, dtype)
   gph = ops.our_Graph.get_default_graph()
   gph.constants.append(this_constant)

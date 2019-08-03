@@ -823,9 +823,11 @@ class BaseSession(SessionInterface):
         return node._initial_value        # this returns a tensor, from which shape can be extracted further
       elif isinstance(node, ops.Tensor):
         if node in gph.placeholders:
-          return ops.Tensor(feed_dict[node])      # this is a numpy ndarray shape, so return it       # OLD a tensor of this shape after converting the shape to a list
+          return ops.Tensor(feed_dict[node])      # this is a numpy ndarray shape, so return after making it a tensor       # OLD a tensor of this shape after converting the shape to a list
         elif node in gph.identity_placeholders:     # this has been constructed just to support StackOverFlow/UT-2/fixed
           return node   # returns a Tensor 
+        elif node in gph.constants:
+          return node
         else:
           raise NotImplementedError("This is the type of node:{}".format(type(node)))
       elif isinstance(node, ops.our_Operation):
@@ -843,7 +845,7 @@ class BaseSession(SessionInterface):
         node.output = node._initial_value      # returns a tensor which can be further passed to operations
       elif isinstance(node, ops.our_Operation):
         assert(node in gph.operations), "operations should be in operations graph"
-        inputs = [f1_var(node) for node in node.input_nodes]    # this can be node.output as not every input in our case is our_Operation, some are variables, list etc.
+        inputs = [f1_var(nod) for nod in node.input_nodes]    # this can be node.output as not every input in our case is our_Operation, some are variables, list etc.
         node.output = node.fwd_func(*inputs)   # pass this as input to that node, here it should be just matmul
       elif isinstance(node, ops.Tensor):       # If it is of tensor kind, then I am not doing any operation
         if node in gph.placeholders:
