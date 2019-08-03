@@ -617,10 +617,23 @@ def pow(x, y, name=None):  # pylint: disable=redefined-builtin
   """
   if not isinstance(y, int):
     assert(x.shape == y.shape), "must be of same shape"
-  return ops.Tensor(x.shape)    # this is the shape of returned tensor
 
-  with ops.name_scope(name, "Pow", [x]) as name:
-    return gen_math_ops._pow(x, y, name=name)
+  def forward(x):     # no y as it can be taken from above
+    if isinstance(x, ops.our_Operation):
+      shap = x.fwd_func(*x.input_nodes).shape
+    else:
+      shap = x.shape
+    if not isinstance(y, int):
+      assert(x.shape == y.shape), "x and y must be of same shape"
+    return ops.Tensor(shap)    # this is the shape of returned tensor
+
+  this_operation = ops.our_Operation([x], ffnc=forward, name="pow")   # create a new operation object each time
+  gph = ops.our_Graph.get_default_graph()
+  gph.operations.append(this_operation)
+  return this_operation
+  
+  # with ops.name_scope(name, "Pow", [x]) as name:
+  #   return gen_math_ops._pow(x, y, name=name)
 
 
 # pylint: disable=redefined-builtin,redefined-outer-name

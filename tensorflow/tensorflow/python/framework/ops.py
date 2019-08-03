@@ -5616,17 +5616,55 @@ class our_Operation():
     def __add__(self, other):   # just adding bias for now 
       def forward(self, other):
         if isinstance(self, our_Operation):
-          shape1 = self.fwd_func(*self.input_nodes).shape
+          a = self.fwd_func(*self.input_nodes).shape
         else:
-          shape1 = self.shape
+          a = self.shape
         if isinstance(other, our_Operation):
-          shape2 = other.fwd_func(*other.input_nodes).shape
+          b = other.fwd_func(*other.input_nodes).shape
         else:
-          shape2 = other.shape
-        assert(len(shape2) == 1)    # single rank bias, other wise we need to return `other` and not `self`
-        assert(shape1[-1] == shape2[-1]), "for adding of bias last element of shape must be same %s %s"%(shape1, shape2)
-        return Tensor(shape1)   # `self` returns the operation and hence can't do it, need to return a Tensor
+          b = other.shape
+        
+        if len(a) == len(b):
+          assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1"
+          output_shape = [max(a[i], b[i]) for i in range(len(a))]
+        elif len(a) > len(b):
+          assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "must be either same value or one of them should be 1"
+          output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
+        else:
+          assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1"
+          output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
+   
+        return Tensor(output_shape)   # no dtype
+
       this_operation = our_Operation([self, other], ffnc=forward, name="__add__")   # create a new operation object each time
+      gph = our_Graph.get_default_graph()
+      gph.operations.append(this_operation)
+      return this_operation
+
+    def __sub__(self, other):
+      def forward(self, other):
+        if isinstance(self, our_Operation):
+          a = self.fwd_func(*self.input_nodes).shape
+        else:
+          a = self.shape
+        if isinstance(other, our_Operation):
+          b = other.fwd_func(*other.input_nodes).shape
+        else:
+          b = other.shape
+        
+        if len(a) == len(b):
+          assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1"
+          output_shape = [max(a[i], b[i]) for i in range(len(a))]
+        elif len(a) > len(b):
+          assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "must be either same value or one of them should be 1"
+          output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
+        else:
+          assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "must be either same value or one of them should be 1"
+          output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
+   
+        return Tensor(output_shape)   # no dtype
+
+      this_operation = our_Operation([self, other], ffnc=forward, name="__sub__")   # create a new operation object each time
       gph = our_Graph.get_default_graph()
       gph.operations.append(this_operation)
       return this_operation
@@ -5650,6 +5688,16 @@ class our_Operation():
     def __neg__(self):
       return self    # this is output shape  
 
+    def __truediv__(self, other):   # doing only for tensor / (2 * n_samples) in Ut-10/
+      if isinstance(other, (int, float)):
+        return self   # not making it an operation yet.
+      else:
+        raise NotImplementedError
+      # shap = self.fwd_func(*self.input_nodes).shape
+      # else:
+        # shap = self.shape
+      # assert(shap == None)
+    
     def __repr__(self):
       return "<Operation:{}>".format(self.name_op) #, [i.name_op if isinstance(i, our_Operation) else i for i in self.input_nodes])
     

@@ -1014,8 +1014,8 @@ class BaseSession(SessionInterface):
         feed_dict_shapes[key] = shape_value   # this is the shape value
 
     # is this assert gets passed, we can store the shape of the feed_dict keys and use it later directly
+    feed_dict_shapes = {}
     if feed_dict:   # only if feed_dict is not None
-      feed_dict_shapes = {}
       feed_dict_shape_confirm(feed_dict, feed_dict_shapes)    # This is for confirming is the shape of the feed_dict is conformable
     
     print("FEED_DICT IS OKAY", feed_dict_shapes)    # I expect the feed_dict_shape to change as it is mutable object (passed by reference)
@@ -1031,7 +1031,10 @@ class BaseSession(SessionInterface):
     for r, j in enumerate(result):
       if isinstance(j, ops.Tensor):   # I don't expect operations till end of a natural program, unlike debugging trace
         result[r] = j.shape
-    return result
+    
+    if not isinstance(fetches, list):
+      assert(len(result)==1)
+      return result[0]
 
     # try:
     #   result = self._run(None, fetches, feed_dict, options_ptr, run_metadata_ptr)
