@@ -969,11 +969,25 @@ def stack(values, axis=0, name="stack"):
     ValueError: If `axis` is out of the range [-(R+1), R+1).
   """
   assert(isinstance(values, list) and axis == 0)
-  if len(values) == 2 and not values[0].shape and not values[1].shape:    # done for Ut-7/playing.py
-    return ops.Tensor(None, None)     # not an operation
+  # this_tensor = ops.convert_to_tensor(values, name=name)    # github/UT-1, not sure if it works for StackOverflow/UT-7/
+  # gph = ops.our_Graph.get_default_graph()
+  # gph.created_tensors.append(this_tensor)
+  # return this_tensor
+
+  if len(values) == 2 and not values[0].shape:
+    if isinstance(values[1], ops.Tensor) and not values[1].shape:    # done for StackOverFlow/Ut-7/playing.py
+      this_tensor = ops.Tensor(None, None)
+    elif isinstance(values[1], int):         # done for Github/UT-1
+      this_tensor = ops.Tensor(shape=[None, values[1]])
+    else:
+      raise NotImplementedError
   else:
     print(values[0].shape, values[1].shape)
     raise NotImplementedError
+
+  gph = ops.our_Graph.get_default_graph()
+  gph.created_tensors.append(this_tensor)
+  return this_tensor
   
   # if axis == 0:
   #   try:

@@ -3542,8 +3542,10 @@ def add(x, y, name=None):
     b = y.shape   # implicit tensor or variable
   
   # remove None in shape:
-  a = list(filter(None, a))
-  b = list(filter(None, b))
+  # a = list(filter(None, a))
+  # b = list(filter(None, b))
+  a = [1 if x==None else x for x in a]
+  b = [1 if x==None else x for x in b]
 
   # don't calculate the output_shape here, only inside forward
   if len(a) == len(b):
@@ -3568,8 +3570,10 @@ def add(x, y, name=None):
       b = y.shape   # implicit tensor or variable
     
     # remove None in shape:
-    a = list(filter(None, a))
-    b = list(filter(None, b))
+    # a = list(filter(None, a))
+    # b = list(filter(None, b))
+    a = [1 if x==None else x for x in a]
+    b = [1 if x==None else x for x in b]
 
     if len(a) == len(b):
       assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)

@@ -5627,9 +5627,11 @@ class our_Operation():
         elif isinstance(other, (float, int)):
           return self   # no change as int is being added or subtracted, produced no change
         
-        # remove None in shape:
-        a = list(filter(None, a))
-        b = list(filter(None, b))
+        # replace None by 1 in shapes:
+        # a = list(filter(None, a))
+        # b = list(filter(None, b))
+        a = [1 if x==None else x for x in a]
+        b = [1 if x==None else x for x in b]
 
         if len(a) == len(b):
           assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
