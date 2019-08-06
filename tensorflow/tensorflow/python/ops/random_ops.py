@@ -70,10 +70,24 @@ def random_normal(shape,
   """
   # we can out asserts on shapes of mean and shape, don't need now
 
-  if isinstance(shape, list):
-    return ops.Tensor(shape, dtype)
+  # def forward():
+  #   return ops.Tensor(shape, dtype)   # output shape is shape
+
+  # this_operation = ops.our_Operation([], ffnc=forward, name="random_uniform")
+  # gph = ops.our_Graph.get_default_graph()
+  # gph.operations.append(this_operation)
+  # return this_operation
+  
+  # not making this an op, should be better for faster, lets change the random_uniform and others. Think in terms of shape only, an op for operation is operation, else no
+  if isinstance(shape, (list, tuple)):      # you are creating a tensor here, you need to add it to ops.our_Graph
+    this_tensor = ops.Tensor(list(shape), dtype)
+    gph = ops.our_Graph.get_default_graph()
+    gph.created_tensors.append(this_tensor)
+    return this_tensor
+  elif isinstance(shape, ops.Tensor):
+    return shape    # there is no change in shape
   else:
-    raise NotImplementedError("this is the shape {} and its type{}".format(shape, type(shape)))
+    raise NotImplementedError("this is the shape {} and its type{}".format(shape, type(shape))) 
   
   # try:
   #   assert(shape != None)
@@ -182,7 +196,10 @@ def truncated_normal(shape,
   # print(shape, type(shape), "dekdei")
   
   if isinstance(shape, (list, tuple)):
-    return ops.Tensor(list(shape), dtype)
+    this_tensor = ops.Tensor(list(shape), dtype)
+    gph = ops.our_Graph.get_default_graph()
+    gph.created_tensors.append(this_tensor)
+    return this_tensor
   elif isinstance(shape, ops.Tensor):
     return shape    # there is no change in shape
   else:
@@ -261,13 +278,24 @@ def random_uniform(shape,
     ValueError: If `dtype` is integral and `maxval` is not specified.
   """
   # assert(isinstance(dtype, dtype.float32)), "Other not implemented"
-  def forward():
-    return ops.Tensor(shape, dtype)   # output shape is shape
+  # def forward():
+  #   return ops.Tensor(shape, dtype)   # output shape is shape
 
-  this_operation = ops.our_Operation([], ffnc=forward, name="random_uniform")
-  gph = ops.our_Graph.get_default_graph()
-  gph.operations.append(this_operation)
-  return this_operation
+  # this_operation = ops.our_Operation([], ffnc=forward, name="random_uniform")
+  # gph = ops.our_Graph.get_default_graph()
+  # gph.operations.append(this_operation)
+  # return this_operation
+
+  # not making this an op, should be better for faster, lets change the random_uniform and others. Think in terms of shape only, an op for operation is operation, else no
+  if isinstance(shape, (list, tuple)):
+    this_tensor = ops.Tensor(list(shape), dtype)
+    gph = ops.our_Graph.get_default_graph()
+    gph.created_tensors.append(this_tensor)
+    return this_tensor
+  elif isinstance(shape, ops.Tensor):
+    return shape    # there is no change in shape
+  else:
+    raise NotImplementedError("this is the shape {} and its type{}".format(shape, type(shape))) 
 
   # dtype = dtypes.as_dtype(dtype)
   # if dtype not in (dtypes.float16, dtypes.bfloat16, dtypes.float32,

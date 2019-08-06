@@ -9,7 +9,6 @@
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
 """Classes and functions used to construct graphs."""
@@ -5615,17 +5614,23 @@ class our_Operation():
     
       # our_Graph.get_default_graph().operations.append(self)   # this is the reason for twice occurence, remove it
 
-    def __add__(self, other):   # just adding bias for now 
-      def forward(self, other):
+    def __add__(self, other, name=None):
+      def forward(self, other):       # BROADCASTING IMPLEMENTED
         if isinstance(self, our_Operation):
           a = self.fwd_func(*self.input_nodes).shape
         else:
           a = self.shape
         if isinstance(other, our_Operation):
           b = other.fwd_func(*other.input_nodes).shape
-        else:
+        elif isinstance(other, Tensor):
           b = other.shape
+        elif isinstance(other, (float, int)):
+          return self   # no change as int is being added or subtracted, produced no change
         
+        # remove None in shape:
+        a = list(filter(None, a))
+        b = list(filter(None, b))
+
         if len(a) == len(b):
           assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
           output_shape = [max(a[i], b[i]) for i in range(len(a))]
@@ -5638,67 +5643,19 @@ class our_Operation():
    
         return Tensor(output_shape)   # no dtype
 
-      this_operation = our_Operation([self, other], ffnc=forward, name="__add__")   # create a new operation object each time
+      this_operation = our_Operation([self, other], ffnc=forward, name=name if name else "__add__")   # can be used for __sub__, __rsub__   as code is same
       gph = our_Graph.get_default_graph()
       gph.operations.append(this_operation)
       return this_operation
 
     def __sub__(self, other):
-      def forward(self, other):
-        if isinstance(self, our_Operation):
-          a = self.fwd_func(*self.input_nodes).shape
-        else:
-          a = self.shape
-        if isinstance(other, our_Operation):
-          b = other.fwd_func(*other.input_nodes).shape
-        else:
-          b = other.shape
-        
-        if len(a) == len(b):
-          assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
-          output_shape = [max(a[i], b[i]) for i in range(len(a))]
-        elif len(a) > len(b):
-          assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
-          output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
-        else:
-          assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
-          output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
-   
-        return Tensor(output_shape)   # no dtype
-
-      this_operation = our_Operation([self, other], ffnc=forward, name="__sub__")   # create a new operation object each time
-      gph = our_Graph.get_default_graph()
-      gph.operations.append(this_operation)
-      return this_operation
-
-    def __rsub__(self, other):    # this means other is tensor here; you still to make it operation as tensor can be placeholder
-      def forward(self, other):
-        if isinstance(self, our_Operation):
-          a = self.fwd_func(*self.input_nodes).shape
-        else:
-          a = self.shape
-        # if isinstance(other, our_Operation):
-        #   b = other.fwd_func(*other.input_nodes).shape
-        # else:
-        b = other.shape
-        
-        if len(a) == len(b):
-          assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
-          output_shape = [max(a[i], b[i]) for i in range(len(a))]
-        elif len(a) > len(b):
-          assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
-          output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
-        else:
-          assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
-          output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
-   
-        return Tensor(output_shape)   # no dtype
-
-      this_operation = our_Operation([self, other], ffnc=forward, name="__rsub__")   # create a new operation object each time
-      gph = our_Graph.get_default_graph()
-      gph.operations.append(this_operation)
-      return this_operation
-
+      return self.__add__(other, name="__sub__")
+    
+    def __rsub__(self, other):
+      return self.__add__(other, name="__rsub__")
+      
+    def __radd__(self, other):
+      return self.__add__(other, name="__radd__")
     
     def __mul__(self, other):
       if isinstance(other, our_Operation):
@@ -5711,6 +5668,8 @@ class our_Operation():
     def __rmul__(self, other):
       if isinstance(other, Tensor):
         shape1 = self.fwd_func(*self.input_nodes).shape; shape2 = other.shape
+      elif isinstance(other, (int, float)):
+        return self     # no change
       else:
         raise NotImplementedError("These are the types of self:{} and other:{}".format(type(self), type(other)))
       assert(shape1 == shape2), "for multiplication shape must be same %s %s"%(shape1, shape2)
@@ -5752,7 +5711,6 @@ class our_Operation():
 
 
 
-
 class our_Graph():
 
   def __init__(self):
@@ -5761,6 +5719,7 @@ class our_Graph():
     self.variables = []
     self.constants = []
     self.identity_placeholders = []
+    self.created_tensors = []     # this includes tensors which are created by the remaining operations, for eg. random_normal
     # self.child_operations = []
 
   # def as_default(self):

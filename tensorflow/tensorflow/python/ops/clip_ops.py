@@ -59,7 +59,7 @@ def clip_by_value(t, clip_value_min, clip_value_max,
       that would make the returned tensor larger than the input.
   """
   if isinstance(t, ops.our_Operation):   # the input of this must be an our_Operation object
-    t.name_op = t.name_op + "_+_nn.softmax"
+    t.name_op = t.name_op + "_+_clip_by_value"
     shap = t.fwd_func(*t.input_nodes).shape
   else:
     shap = t.shape

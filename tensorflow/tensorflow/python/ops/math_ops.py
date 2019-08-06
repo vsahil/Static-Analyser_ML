@@ -370,11 +370,64 @@ def multiply(x, y, name=None):
   Returns:
     A `Tensor`. Has the same type as `x`.
   """
-  if (x.shape == y.shape):
-    return ops.Tensor(x.shape)
-  else:
-    raise NotImplementedError("Broadcasting not implemented yet")
+  return add(x, y, name="multiply")
 
+  # if isinstance(x, ops.our_Operation):
+  #   a = x.fwd_func(*x.input_nodes).shape
+  # else:
+  #   a = x.shape   # implicit tensor or variable
+  
+  # if isinstance(y, ops.our_Operation):
+  #   b = y.fwd_func(*y.input_nodes).shape
+  # else:
+  #   b = y.shape   # implicit tensor or variable
+  
+  # # remove None in shape:
+  # a = list(filter(None, a))
+  # b = list(filter(None, b))
+
+  # if len(a) == len(b):
+  #   assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+  # elif len(a) > len(b):
+  #   assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
+  # else:
+  #   assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+  
+
+  # # BROADCASTING IMPLEMENTED
+  # def forward(x, y):
+  #   if isinstance(x, ops.our_Operation):
+  #     a = x.fwd_func(*x.input_nodes).shape
+  #   else:
+  #     a = x.shape   # implicit tensor or variable
+    
+  #   if isinstance(y, ops.our_Operation):
+  #     b = y.fwd_func(*y.input_nodes).shape
+  #   else:
+  #     b = y.shape   # implicit tensor or variable
+   
+  #   # remove None in shape:
+  #   a = list(filter(None, a))
+  #   b = list(filter(None, b))
+
+  #   if len(a) == len(b):
+  #     assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+  #     output_shape = [max(a[i], b[i]) for i in range(len(a))]
+  #   elif len(a) > len(b):
+  #     assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
+  #     output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
+  #   else:
+  #     assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+  #     output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
+   
+  #   return ops.Tensor(output_shape)   # no dtype
+
+
+  # this_operation = ops.our_Operation([x, y], ffnc=forward, name="multiply")   # create a new operation object each time
+  # gph = ops.our_Graph.get_default_graph()
+  # gph.operations.append(this_operation)
+  # return this_operation
+  
   # return gen_math_ops.mul(x, y, name)
 
 
@@ -395,7 +448,9 @@ _mul.__doc__ = (
 
 @tf_export("subtract")
 def subtract(x, y, name=None):
-  return gen_math_ops.sub(x, y, name)
+  
+  return add(x, y, name="subtract")
+  # return gen_math_ops.sub(x, y, name)
 
 
 subtract.__doc__ = gen_math_ops.sub.__doc__.replace("`Sub`", "`tf.subtract`")
@@ -508,17 +563,26 @@ def square(x, name=None):
   Returns:
     A `Tensor` or `SparseTensor`. Has the same type as `x`.
   """
-  def forward(x):     # no y as it can be taken from above
-    if isinstance(x, ops.our_Operation):
-      shap = x.fwd_func(*x.input_nodes).shape
-    else:
-      shap = x.shape
-    return ops.Tensor(shap)    # this is the shape of returned tensor
+  if isinstance(x, ops.Tensor):   # no change is it is a tensor, not an operation
+    return x
+  elif isinstance(x, ops.our_Operation):
+    x.name_op = x.name_op + "_+_sqrt"
+    return x
+  else:
+    raise NotImplementedError("this is the shape {} and its type{}".format(x, type(x)))
 
-  this_operation = ops.our_Operation([x], ffnc=forward, name="square")
-  gph = ops.our_Graph.get_default_graph()
-  gph.operations.append(this_operation)
-  return this_operation
+  # no need to implement as an Operation
+  # def forward(x):     # no y as it can be taken from above
+  #   if isinstance(x, ops.our_Operation):
+  #     shap = x.fwd_func(*x.input_nodes).shape
+  #   else:
+  #     shap = x.shape
+  #   return ops.Tensor(shap)    # this is the shape of returned tensor
+
+  # this_operation = ops.our_Operation([x], ffnc=forward, name="square")
+  # gph = ops.our_Graph.get_default_graph()
+  # gph.operations.append(this_operation)
+  # return this_operation
   
   # with ops.name_scope(name, "Square", [x]) as name:
   #   if isinstance(x, sparse_tensor.SparseTensor):
@@ -543,13 +607,21 @@ def sqrt(x, name=None):
   Returns:
     A `Tensor` or `SparseTensor`, respectively. Has the same type as `x`.
   """
-  with ops.name_scope(name, "Sqrt", [x]) as name:
-    if isinstance(x, sparse_tensor.SparseTensor):
-      x_sqrt = gen_math_ops.sqrt(x.values, name=name)
-      return sparse_tensor.SparseTensor(
-          indices=x.indices, values=x_sqrt, dense_shape=x.dense_shape)
-    else:
-      return gen_math_ops.sqrt(x, name=name)
+  if isinstance(x, ops.Tensor):   # no change is it is a tensor, not an operation
+    return x
+  elif isinstance(x, ops.our_Operation):
+    x.name_op = x.name_op + "_+_sqrt"
+    return x
+  else:
+    raise NotImplementedError("this is the shape {} and its type{}".format(x, type(x)))
+
+  # with ops.name_scope(name, "Sqrt", [x]) as name:
+  #   if isinstance(x, sparse_tensor.SparseTensor):
+  #     x_sqrt = gen_math_ops.sqrt(x.values, name=name)
+  #     return sparse_tensor.SparseTensor(
+  #         indices=x.indices, values=x_sqrt, dense_shape=x.dense_shape)
+  #   else:
+  #     return gen_math_ops.sqrt(x, name=name)
 
 
 @tf_export("erf")
@@ -626,22 +698,31 @@ def pow(x, y, name=None):  # pylint: disable=redefined-builtin
   Returns:
     A `Tensor`.
   """
-  if not isinstance(y, int):
+  if not isinstance(y, (int, float)):
     assert(x.shape == y.shape), "must be of same shape"
 
-  def forward(x):     # no y as it can be taken from above
-    if isinstance(x, ops.our_Operation):
-      shap = x.fwd_func(*x.input_nodes).shape
-    else:
-      shap = x.shape
-    if not isinstance(y, int):
-      assert(x.shape == y.shape), "x and y must be of same shape"
-    return ops.Tensor(shap)    # this is the shape of returned tensor
+  if isinstance(x, ops.Tensor):   # no change is it is a tensor, not an operation
+    return x
+  elif isinstance(x, ops.our_Operation):
+    x.name_op = x.name_op + "_+_pow"
+    return x
+  else:
+    raise NotImplementedError("this is the shape {} and its type{}".format(x, type(x)))
 
-  this_operation = ops.our_Operation([x], ffnc=forward, name="pow")   # create a new operation object each time
-  gph = ops.our_Graph.get_default_graph()
-  gph.operations.append(this_operation)
-  return this_operation
+  # why to implement it as an operation, in terms of shape it is no operation
+  # def forward(x):     # no y as it can be taken from above
+  #   if isinstance(x, ops.our_Operation):
+  #     shap = x.fwd_func(*x.input_nodes).shape
+  #   else:
+  #     shap = x.shape
+  #   if not isinstance(y, int):
+  #     assert(x.shape == y.shape), "x and y must be of same shape"
+  #   return ops.Tensor(shap)    # this is the shape of returned tensor
+
+  # this_operation = ops.our_Operation([x], ffnc=forward, name="pow")   # create a new operation object each time
+  # gph = ops.our_Graph.get_default_graph()
+  # gph.operations.append(this_operation)
+  # return this_operation
   
   # with ops.name_scope(name, "Pow", [x]) as name:
   #   return gen_math_ops._pow(x, y, name=name)
@@ -1499,6 +1580,12 @@ def reduce_sum(input_tensor,
     keepdims = False
   assert(not(keepdims) and not(reduction_indices)), "current implementation"
   if axis:
+    if isinstance(axis, list):
+      pass
+    elif isinstance(axis, int):
+      axis = [axis]
+    else:
+      raise NotImplementedError
     assert(all(len(input_tensor.shape) > i > -len(input_tensor.shape)) for i in axis), "Must be in the range `[-rank(input_tensor), rank(input_tensor))`"
   
   # Whatever be the input, the output is going to be an our_Operation object
@@ -1510,9 +1597,16 @@ def reduce_sum(input_tensor,
     else:
       shap = input_t.shape
     if shap:
-      result = 1
+      result = [1]      # need to make it a list
+    nonlocal axis
     if axis and shap:
       result = shap[:]
+      if isinstance(axis, list):
+        pass
+      elif isinstance(axis, int):
+        axis = [axis]
+      else:
+        raise NotImplementedError
       for ax in axis:
         result.pop(ax)
     return ops.Tensor(result)
@@ -1671,7 +1765,7 @@ def reduce_mean(input_tensor,
     else:
       shap = input_t.shape
     if shap:
-      result = 1
+      result = [1]
     return ops.Tensor(result)  # , dtype = input_t.dtype)  input_t might not be a Tensor object, there no dtype
   
   this_operation = ops.our_Operation([input_tensor], ffnc=forward, name="reduce_mean")
@@ -3447,6 +3541,10 @@ def add(x, y, name=None):
   else:
     b = y.shape   # implicit tensor or variable
   
+  # remove None in shape:
+  a = list(filter(None, a))
+  b = list(filter(None, b))
+
   # don't calculate the output_shape here, only inside forward
   if len(a) == len(b):
     assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
@@ -3469,6 +3567,10 @@ def add(x, y, name=None):
     else:
       b = y.shape   # implicit tensor or variable
     
+    # remove None in shape:
+    a = list(filter(None, a))
+    b = list(filter(None, b))
+
     if len(a) == len(b):
       assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
       output_shape = [max(a[i], b[i]) for i in range(len(a))]
@@ -3481,7 +3583,7 @@ def add(x, y, name=None):
    
     return ops.Tensor(output_shape)   # no dtype
 
-  this_operation = ops.our_Operation([x, y], ffnc=forward, name="add")   # create a new operation object each time
+  this_operation = ops.our_Operation([x, y], ffnc=forward, name=name if name else "add")   # we can send subtract here to save code length
   gph = ops.our_Graph.get_default_graph()
   gph.operations.append(this_operation)
   return this_operation
@@ -3530,58 +3632,67 @@ def greater(x, y, name=None):
   Returns:
     A `Tensor` of type `bool`.
   """
-  
-  if isinstance(x, ops.our_Operation):
-    a = x.fwd_func(*x.input_nodes).shape
-  else:
-    a = x.shape   # implicit tensor or variable
-  
-  if isinstance(y, ops.our_Operation):
-    b = y.fwd_func(*y.input_nodes).shape
-  elif isinstance(y, ops.Tensor):
-    b = y.shape
-  elif isinstance(y, (int, float)):
-    return x      # this means type of x will be preserved, either tensor or Operation, as that is meant above this, and not make this as Operation to save costs
-  else:
-    raise NotImplementedError("this is the type of y:{}".format(type(y)))
-    
-  
-   # BROADCASTING IMPLEMENTED
-  
-  if len(a) == len(b):
-    assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
-  elif len(a) > len(b):
-    assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
-  else:
-    assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
-  
-  def forward(x, y):
-    if isinstance(x, ops.our_Operation):
-      a = x.fwd_func(*x.input_nodes).shape
-    else:
-      a = x.shape   # implicit tensor or variable
-    
-    if isinstance(y, ops.our_Operation):
-      b = y.fwd_func(*y.input_nodes).shape
-    else:
-      b = y.shape   # implicit tensor or variable
-    
-    if len(a) == len(b):      # BROADCASTING IMPLEMENTED
-      assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
-      output_shape = [max(a[i], b[i]) for i in range(len(a))]
-    elif len(a) > len(b):
-      assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
-      output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
-    else:
-      assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
-      output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
-   
-    return ops.Tensor(output_shape)   # no dtype
+  return add(x, y, name="greater")
 
-  this_operation = ops.our_Operation([x, y], ffnc=forward, name="greater")   # create a new operation object each time
-  gph = ops.our_Graph.get_default_graph()
-  gph.operations.append(this_operation)
-  return this_operation
+  # if isinstance(x, ops.our_Operation):
+  #   a = x.fwd_func(*x.input_nodes).shape
+  # else:
+  #   a = x.shape   # implicit tensor or variable
+  
+  # if isinstance(y, ops.our_Operation):
+  #   b = y.fwd_func(*y.input_nodes).shape
+  # elif isinstance(y, ops.Tensor):
+  #   b = y.shape
+  # elif isinstance(y, (int, float)):
+  #   return x      # this means type of x will be preserved, either tensor or Operation, as that is meant above this, and not make this as Operation to save costs
+  # else:
+  #   raise NotImplementedError("this is the type of y:{}".format(type(y)))
+    
+  
+  #  # BROADCASTING IMPLEMENTED
+  
+  # # remove None in shape:
+  # a = list(filter(None, a))
+  # b = list(filter(None, b))
+
+  # if len(a) == len(b):
+  #   assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+  # elif len(a) > len(b):
+  #   assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
+  # else:
+  #   assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+  
+  # def forward(x, y):
+  #   if isinstance(x, ops.our_Operation):
+  #     a = x.fwd_func(*x.input_nodes).shape
+  #   else:
+  #     a = x.shape   # implicit tensor or variable
+    
+  #   if isinstance(y, ops.our_Operation):
+  #     b = y.fwd_func(*y.input_nodes).shape
+  #   else:
+  #     b = y.shape   # implicit tensor or variable
+    
+  #   # remove None in shape:
+  #   a = list(filter(None, a))
+  #   b = list(filter(None, b))
+
+  #   if len(a) == len(b):      # BROADCASTING IMPLEMENTED
+  #     assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+  #     output_shape = [max(a[i], b[i]) for i in range(len(a))]
+  #   elif len(a) > len(b):
+  #     assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
+  #     output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
+  #   else:
+  #     assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+  #     output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
+   
+  #   return ops.Tensor(output_shape)   # no dtype
+
+  # this_operation = ops.our_Operation([x, y], ffnc=forward, name="greater")   # create a new operation object each time
+  # gph = ops.our_Graph.get_default_graph()
+  # gph.operations.append(this_operation)
+  # return this_operation
 
 
 

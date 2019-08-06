@@ -1370,3 +1370,53 @@ def relu(features, name=None):
   #     else:
   #       message = e.message
   #     _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+
+@tf_export('exp')
+def exp(x, name=None):
+  r"""Computes exponential of x element-wise.  \\(y = e^x\\).
+
+  Args:
+    x: A `Tensor`. Must be one of the following types: `bfloat16`, `half`, `float32`, `float64`, `complex64`, `complex128`.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `x`.
+  """
+  
+  if isinstance(x, ops.Tensor):   # no change is it is a tensor, not an operation
+    return x
+  elif isinstance(x, ops.our_Operation):
+    x.name_op = x.name_op + "_+_exp"
+    return x
+  else:
+    raise NotImplementedError("this is the shape {} and its type{}".format(x, type(x)))
+
+  # _ctx = _context._context
+  # if _ctx is None or not _ctx._eager_context.is_eager:
+  #   _, _, _op = _op_def_lib._apply_op_helper(
+  #       "Exp", x=x, name=name)
+  #   _result = _op.outputs[:]
+  #   _inputs_flat = _op.inputs
+  #   _attrs = ("T", _op.get_attr("T"))
+  #   _execute.record_gradient(
+  #     "Exp", _inputs_flat, _attrs, _result, name)
+  #   _result, = _result
+  #   return _result
+
+  # else:
+  #   try:
+  #     _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+  #       _ctx._context_handle, _ctx._eager_context.device_name, "Exp", name,
+  #       _ctx._post_execution_callbacks, x)
+  #     return _result
+  #   except _core._FallbackException:
+  #     return exp_eager_fallback(
+  #         x, name=name, ctx=_ctx)
+  #   except _core._NotOkStatusException as e:
+  #     if name is not None:
+  #       message = e.message + " name: " + name
+  #     else:
+  #       message = e.message
+  #     _six.raise_from(_core._status_to_exception(e.code, message), None)

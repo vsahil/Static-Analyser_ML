@@ -828,6 +828,8 @@ class BaseSession(SessionInterface):
           return node   # returns a Tensor 
         elif node in gph.constants:
           return node
+        elif node in gph.created_tensors:
+          return node
         else:
           raise NotImplementedError("This is the type of node:{}".format(type(node)))
       elif isinstance(node, ops.our_Operation):
@@ -851,6 +853,8 @@ class BaseSession(SessionInterface):
         if node in gph.placeholders:
           node.output = ops.Tensor(feed_dict[node])      # this is a numpy ndarray shape, so return it    # OLD : a tensor of this shape
         elif node in gph.constants:
+          node.output = node      # node is already a tensor, so just return it
+        elif node in gph.created_tensors:
           node.output = node      # node is already a tensor, so just return it
         elif node in gph.identity_placeholders:
           node.output = node.shape      # this has been constructed just to support StackOverFlow/UT-2/fixed
@@ -1023,21 +1027,29 @@ class BaseSession(SessionInterface):
     print("FEED_DICT IS OKAY", feed_dict_shapes)    # I expect the feed_dict_shape to change as it is mutable object (passed by reference)
 
     result = []
-    if isinstance(fetches, list):# and len(fetches) <= 2:   # onpy upto 2 
+    if isinstance(fetches, (list, tuple)):# and len(fetches) <= 2:   # onpy upto 2 
       for i in fetches:
         result.append(self.evaluate_fetches(i, feed_dict_shapes))   # this will evaluate each operation individually
+        # print(i, "IS DONE")
     else:
       result.append(self.evaluate_fetches(fetches, feed_dict_shapes))
 
     print("ALL IS WELL")
     for r, j in enumerate(result):
       if isinstance(j, ops.Tensor):   # I don't expect operations till end of a natural program, unlike debugging trace
-        result[r] = j.shape
+        # shp = j.shape
+        # if len(shp) == 1:   # for github UT-1, which used the cost in addition, not much use for us
+        #   result[r] = j.shape[0]
+        # else:
+          result[r] = j.shape
+      if isinstance(j, list) and len(list) == 1:
+        result[r] = j[0]
     
-    if not isinstance(fetches, list):
+    if not isinstance(fetches, (list, tuple)):
       assert(len(result)==1)
       result = result[0]
 
+    # print(result, "SEE HTIS")
     return result
 
     # try:

@@ -96,6 +96,9 @@ class _ModuleInitCodeBuilder(object):
     import_str = format_import(source_module_name, source_name, dest_name)
 
     # Check if we are trying to expose two different symbols with same name.
+    # if "exp" in source_name:
+      # print("EW GOTCHA", source_name, import_str)
+      # return 
     full_api_name = dest_name
     if dest_module_name:
       # if this:
@@ -197,14 +200,11 @@ def get_api_init_text():
           dest_module = '.'.join(names[:-1])
           if "reshape" in str(attr) or "reshape" in str(module_contents_name):        # If it is reshape here, don't add it in the file, just continue, not sure how to overwrite, but this is fine
               continue
+          
           if "conv2d" in str(attr) or "conv2d" in str(module_contents_name):        # If it is reshape here, don't add it in the file, just continue, not sure how to overwrite, but this is fine
               if str(attr._tf_api_names[0]) == "nn.conv2d" and (not "tensor_shape" in module.__name__):   # there are several conv2d modules, only when this is
-                # print(attr, module_contents_name, attr._tf_api_names, names, dest_module, id(attr), module.__name__, "HELLLO")
-                # nw = dest_module + '.' + names[-1]
-                # print(len(module_code_builder._dest_import_to_id), nw in module_code_builder._dest_import_to_id, "dekhio", len(module_code_builder._dest_import_to_id), nw in module_code_builder._dest_import_to_id)
-                # print(module_code_builder._dest_import_to_id[nw])
-                # print(id(attr) != module_code_builder._dest_import_to_id[nw] and id(attr) != -1 and nw in module_code_builder._dest_import_to_id, "SEE THIS")
                 continue
+          
           if "nn.relu" in str(attr._tf_api_names) and (not "tensor_shape" in module.__name__):
             continue
 
@@ -218,6 +218,9 @@ def get_api_init_text():
             continue
 
           if "greater" in str(module_contents_name) and names[-1] == "greater" and "gen_math_ops" in module.__name__:
+            continue
+          
+          if "exp" in str(module_contents_name) and names[-1] == "exp":    #  I added it to tensor_shape file and problem was solved, its being imported from tensor_shape in __init__.py # and ("gen_math_ops" in module.__name__ or "standard_ops" in module.__name__):
             # print(attr, module_contents_name, attr._tf_api_names, names, dest_module, id(attr), module.__name__, "HELLLO")
             # nw = dest_module + '.' + names[-1]
             # print(len(module_code_builder._dest_import_to_id), nw in module_code_builder._dest_import_to_id, "dekhio", len(module_code_builder._dest_import_to_id), nw in module_code_builder._dest_import_to_id)
@@ -232,6 +235,7 @@ def get_api_init_text():
   # For e.g. if we import 'foo.bar.Value'. Then, we also
   # import 'bar' in 'foo'.
   imported_modules = set(module_code_builder.module_imports.keys())
+  # print(imported_modules, "DEKHO")
   for module in imported_modules:
     if not module:
       continue

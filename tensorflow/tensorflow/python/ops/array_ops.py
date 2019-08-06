@@ -309,7 +309,10 @@ def shape(input, name=None, out_type=dtypes.int32):
     A `Tensor` of type `out_type`.
   """
 
-  return ops.Tensor(input.shape)
+  this_tensor = ops.Tensor(list(input.shape), out_type)
+  gph = ops.our_Graph.get_default_graph()
+  gph.created_tensors.append(this_tensor)
+  return this_tensor
   
   # if "dtype:" in str(out_type):
   #   return ops.Tensor(input.shape, input.dtype)    # it is an tensor, it would return the shape as a tensor, so it is not same as returning input.shape
