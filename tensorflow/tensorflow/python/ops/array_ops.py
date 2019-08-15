@@ -213,6 +213,11 @@ def expand_dims(input, axis=None, name=None, dim=None):
       raise ValueError("can't specify both 'dim' and 'axis'")
     axis = dim
   
+  if isinstance(input, ops.Tensor):   # no need to return Operation object if input is Tensor
+    output_shape = input.shape[:]
+    output_shape.insert(axis, 1)    # this is in_place operation
+    return ops.Tensor(output_shape)
+  
   # shape is a list for us, just insert 1 in postion specified by axis
   def forward(input):
     output_shape = input.shape[:]
@@ -309,7 +314,7 @@ def shape(input, name=None, out_type=dtypes.int32):
     A `Tensor` of type `out_type`.
   """
 
-  this_tensor = ops.Tensor(list(input.shape), out_type)
+  this_tensor = ops.Tensor(list(input.shape), out_type)   # returns a tensor containing the shape of the input
   gph = ops.our_Graph.get_default_graph()
   gph.created_tensors.append(this_tensor)
   return this_tensor
@@ -969,22 +974,20 @@ def stack(values, axis=0, name="stack"):
     ValueError: If `axis` is out of the range [-(R+1), R+1).
   """
   assert(isinstance(values, list) and axis == 0)
-  # this_tensor = ops.convert_to_tensor(values, name=name)    # github/UT-1, not sure if it works for StackOverflow/UT-7/
-  # gph = ops.our_Graph.get_default_graph()
-  # gph.created_tensors.append(this_tensor)
-  # return this_tensor
 
-  if len(values) == 2 and not values[0].shape:
-    if isinstance(values[1], ops.Tensor) and not values[1].shape:    # done for StackOverFlow/Ut-7/playing.py
-      this_tensor = ops.Tensor(None, None)
-    elif isinstance(values[1], int):         # done for Github/UT-1
-      this_tensor = ops.Tensor(shape=[None, values[1]])
+  def find_shape(this):
+    if isinstance(this, ops.Tensor):
+      shap = this.shape
+    elif isinstance(this, int):
+      shap = [this]   # so that it is a list, then will we unwrap it in down
     else:
-      raise NotImplementedError
-  else:
-    print(values[0].shape, values[1].shape)
-    raise NotImplementedError
+      raise NotImplementedError("Expects only tensor and int :{}, type: {}".format(this, type(this)))
+    return shap
 
+  output_shape = [find_shape(i) for i in values]
+  output_shape = [item for sublist in output_shape for item in sublist]
+  # print(output_shape, "CEHCK")
+  this_tensor = ops.Tensor(output_shape)  
   gph = ops.our_Graph.get_default_graph()
   gph.created_tensors.append(this_tensor)
   return this_tensor
@@ -1232,8 +1235,12 @@ def concat(values, axis, name="concat"):
   """
   if not isinstance(values, (list, tuple)):
     values = [values]
+  if not isinstance(axis, (list, tuple)):
+    axis = [axis]
+  
   # TODO(mrry): Change to return values?
   if len(values) == 1:  # Degenerate case of one tensor.
+    raise NotImplementedError
     # Make a throwaway call to convert_to_tensor to make sure
     # that axis is of the correct type, and make sure that
     # the returned tensor is a scalar.
@@ -1244,7 +1251,35 @@ def concat(values, axis, name="concat"):
           dtype=dtypes.int32).get_shape().assert_is_compatible_with(
               tensor_shape.scalar())
       return identity(values[0], name=scope)
-  return gen_array_ops.concat_v2(values=values, axis=axis, name=name)
+  
+  shapes = []
+  for i in values:
+    if isinstance(i, ops.Tensor):
+      shapes.append(i.shape)
+    else:
+      raise NotImplementedError("thsi is the type of i:{}".format(type(i)))
+  output_shape = []
+  
+  it = iter(shapes)
+  the_len = len(next(it))
+  assert(all(len(l) == the_len for l in it))    # asserts that all sublists are of same length
+  # print(the_len, "HSEOWOFV")
+  for j in range(the_len):
+    if j not in axis:   # axis is a list
+      p = set([k[j] for k in shapes if k[j]])   # only take k[j] if not None
+      # print(j , p, "dekho")
+      assert(len(p) == 1)   # if they are same then they will have same values
+      output_shape.append(list(p)[0])
+    else:
+      output_shape.append(sum([k[j] for k in shapes]))
+  # print(output_shape, "FINAL")
+  
+  this_tensor = ops.Tensor(output_shape)
+  gph = ops.our_Graph.get_default_graph()
+  gph.created_tensors.append(this_tensor)
+  return this_tensor
+
+  # return gen_array_ops.concat_v2(values=values, axis=axis, name=name)
 
 
 @tf_export("boolean_mask")
@@ -1443,7 +1478,8 @@ def split(value, num_or_size_splits, axis=0, num=None, name="split"):
   Raises:
     ValueError: If `num` is unspecified and cannot be inferred.
   """
-  assert(isinstance(num_or_size_splits, int) and axis == 0), "Tensor splits not implemented, accepting only 0 axis"
+  assert(isinstance(num_or_size_splits, int)), "Tensor splits not implemented"
+  
   if isinstance(value, ops.Tensor):
     shap = value.shape
   elif isinstance(value, ops.our_Operation):
@@ -1453,6 +1489,11 @@ def split(value, num_or_size_splits, axis=0, num=None, name="split"):
         
   if shap[axis]:   # only is this is not None, this assert will be copied in the forward function
     assert(shap[axis] % num_or_size_splits == 0), "Requires that `num_split` evenly divides `value.shape[axis]`"
+  
+  if isinstance(value, ops.Tensor):   # only if it is an operation then you should return it as an operation, else return Tensor
+    output_shape = shap[:]
+    output_shape[axis] = shap[axis] // num_or_size_splits if shap[axis] else shap[axis]      # If it is none, just put None as None
+    return [ops.Tensor(output_shape) for _ in range(num_or_size_splits)]
   
   def forward(value, num_or_size_splits):
     if isinstance(value, ops.Tensor):
@@ -1766,30 +1807,43 @@ def zeros_like(tensor, dtype=None, name=None, optimize=True):
   Returns:
     A `Tensor` with all elements set to zero.
   """
-  with ops.name_scope(name, "zeros_like", [tensor]) as name:
-    tensor = ops.convert_to_tensor(tensor, name="tensor")
+  if isinstance(tensor, ops.Tensor):
+    this_tensor = ops.Tensor(tensor.shape)    # returns a tensor of same shape
+    gph = ops.our_Graph.get_default_graph()
+    gph.created_tensors.append(this_tensor)
+    return this_tensor
+  elif isinstance(tensor, int):
+    this_tensor = ops.convert_to_tensor(tensor, name="tensor")
+    gph = ops.our_Graph.get_default_graph()
+    gph.created_tensors.append(this_tensor)
+    return this_tensor
+  else:
+    raise NotImplementedError("This is the type of input".format(type(tensor)))
 
-    if context.executing_eagerly():
-      if dtype is not None and dtype != tensor.dtype:
-        return zeros(
-            shape_internal(tensor, optimize=optimize), dtype=dtype, name=name)
-      with ops.device(tensor.device):
-        return gen_array_ops.zeros_like(tensor, name=name)
+  # with ops.name_scope(name, "zeros_like", [tensor]) as name:
+  #   tensor = ops.convert_to_tensor(tensor, name="tensor")
 
-    # For now, variant types must be created via zeros_like; as we need to
-    # pass the input variant object to the proper zeros callback.
+  #   if context.executing_eagerly():
+  #     if dtype is not None and dtype != tensor.dtype:
+  #       return zeros(
+  #           shape_internal(tensor, optimize=optimize), dtype=dtype, name=name)
+  #     with ops.device(tensor.device):
+  #       return gen_array_ops.zeros_like(tensor, name=name)
 
-    if (optimize and tensor.shape.is_fully_defined() and
-        tensor.dtype != dtypes.variant):
-      # We can produce a zeros tensor independent of the value of 'tensor',
-      # since the shape is known statically.
-      return zeros(tensor.shape, dtype=dtype or tensor.dtype, name=name)
+  #   # For now, variant types must be created via zeros_like; as we need to
+  #   # pass the input variant object to the proper zeros callback.
 
-    if dtype is not None and dtype != tensor.dtype and dtype != dtypes.variant:
-      return zeros(
-          shape_internal(tensor, optimize=optimize), dtype=dtype, name=name)
-    else:
-      return gen_array_ops.zeros_like(tensor, name=name)
+  #   if (optimize and tensor.shape.is_fully_defined() and
+  #       tensor.dtype != dtypes.variant):
+  #     # We can produce a zeros tensor independent of the value of 'tensor',
+  #     # since the shape is known statically.
+  #     return zeros(tensor.shape, dtype=dtype or tensor.dtype, name=name)
+
+  #   if dtype is not None and dtype != tensor.dtype and dtype != dtypes.variant:
+  #     return zeros(
+  #         shape_internal(tensor, optimize=optimize), dtype=dtype, name=name)
+  #   else:
+  #     return gen_array_ops.zeros_like(tensor, name=name)
 
 
 @tf_export("ones_like")
@@ -1819,15 +1873,29 @@ def ones_like(tensor, dtype=None, name=None, optimize=True):
   Returns:
     A `Tensor` with all elements set to 1.
   """
-  with ops.name_scope(name, "ones_like", [tensor]) as name:
-    tensor = ops.convert_to_tensor(tensor, name="tensor")
-    ones_shape = shape_internal(tensor, optimize=optimize)
-    if dtype is None:
-      dtype = tensor.dtype
-    ret = ones(ones_shape, dtype=dtype, name=name)
-    if not context.executing_eagerly():
-      ret.set_shape(tensor.get_shape())
-    return ret
+
+  if isinstance(tensor, ops.Tensor):
+    this_tensor = ops.Tensor(tensor.shape)    # returns a tensor of same shape
+    gph = ops.our_Graph.get_default_graph()
+    gph.created_tensors.append(this_tensor)
+    return this_tensor
+  elif isinstance(tensor, int):
+    this_tensor = ops.convert_to_tensor(tensor, name="tensor")
+    gph = ops.our_Graph.get_default_graph()
+    gph.created_tensors.append(this_tensor)
+    return this_tensor
+  else:
+    raise NotImplementedError("This is the type of input".format(type(tensor)))
+
+  # with ops.name_scope(name, "ones_like", [tensor]) as name:
+  #   tensor = ops.convert_to_tensor(tensor, name="tensor")
+  #   ones_shape = shape_internal(tensor, optimize=optimize)
+  #   if dtype is None:
+  #     dtype = tensor.dtype
+  #   ret = ones(ones_shape, dtype=dtype, name=name)
+  #   if not context.executing_eagerly():
+  #     ret.set_shape(tensor.get_shape())
+  #   return ret
 
 
 @tf_export("ones")
@@ -2562,7 +2630,7 @@ def one_hot(indices,
     TypeError: If dtype of `on_value` and `off_value` don't match one another
   """
   
-  assert(on_value==None, off_value==None, axis==None, dtype==None, name==None)
+  assert(on_value==None and off_value==None and axis==None and dtype==None and name==None)
 
   def forward(indices, depth):
     '''
@@ -2919,3 +2987,93 @@ def quantize(input,  # pylint: disable=redefined-builtin
 
 
 quantize.__doc__ = gen_array_ops.quantize_v2.__doc__
+
+
+from tensorflow.python.ops import variables
+@tf_export('tile')
+def tile(input, multiples, name=None):
+  r"""Constructs a tensor by tiling a given tensor.
+
+  This operation creates a new tensor by replicating `input` `multiples` times.
+  The output tensor's i'th dimension has `input.dims(i) * multiples[i]` elements,
+  and the values of `input` are replicated `multiples[i]` times along the 'i'th
+  dimension. For example, tiling `[a b c d]` by `[2]` produces
+  `[a b c d a b c d]`.
+
+  Args:
+    input: A `Tensor`. 1-D or higher.
+    multiples: A `Tensor`. Must be one of the following types: `int32`, `int64`.
+      1-D. Length must be the same as the number of dimensions in `input`
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `input`.
+  """
+  if isinstance(input, (ops.Tensor, variables.Variable)):
+    shap1 = input.shape
+  else:
+    raise NotImplementedError
+  
+  if isinstance(multiples, (ops.Tensor, variables.Variable)):
+    shap2 = multiples.shape
+  else:
+    raise NotImplementedError
+  
+  assert(len(shap1) == len(shap2)), "Length of multiplies must be the same as the number of dimensions in `input`"
+  
+  output_shape = [shap1[i] * shap2[i] for i in range(len(shap1))]
+  this_tensor = ops.Tensor(output_shape)
+  gph = ops.our_Graph.get_default_graph()
+  gph.created_tensors.append(this_tensor)
+  return this_tensor
+  
+  # no need of operation as none of its inputs are operations.
+  # def forward(input, multiples):
+  #   if isinstance(input, (ops.Tensor, variables.Variable)):
+  #     shap1 = input.shape
+  #   else:
+  #     raise NotImplementedError
+    
+  #   if isinstance(multiples, (ops.Tensor, variables.Variable)):
+  #     shap2 = multiples.shape
+  #   else:
+  #     raise NotImplementedError
+
+  #   assert(len(shap1) == len(shap2)), "Length of multiplies must be the same as the number of dimensions in `input`"
+  #   output_shape = [shap1[i] * shap2[i] for i in range(len(shap1))]
+  #   return ops.Tensor(output_shape)
+
+  # this_operation = ops.our_Operation([input, multiples], ffnc=forward, name="tile")   # create a new operation object each time
+  # gph = ops.our_Graph.get_default_graph()
+  # gph.operations.append(this_operation)
+  # return this_operation
+
+
+  # _ctx = _context._context
+  # if _ctx is None or not _ctx._eager_context.is_eager:
+  #   _, _, _op = _op_def_lib._apply_op_helper(
+  #       "Tile", input=input, multiples=multiples, name=name)
+  #   _result = _op.outputs[:]
+  #   _inputs_flat = _op.inputs
+  #   _attrs = ("T", _op.get_attr("T"), "Tmultiples",
+  #             _op.get_attr("Tmultiples"))
+  #   _execute.record_gradient(
+  #     "Tile", _inputs_flat, _attrs, _result, name)
+  #   _result, = _result
+  #   return _result
+
+  # else:
+  #   try:
+  #     _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+  #       _ctx._context_handle, _ctx._eager_context.device_name, "Tile", name,
+  #       _ctx._post_execution_callbacks, input, multiples)
+  #     return _result
+  #   except _core._FallbackException:
+  #     return tile_eager_fallback(
+  #         input, multiples, name=name, ctx=_ctx)
+  #   except _core._NotOkStatusException as e:
+  #     if name is not None:
+  #       message = e.message + " name: " + name
+  #     else:
+  #       message = e.message
+  #     _six.raise_from(_core._status_to_exception(e.code, message), None)

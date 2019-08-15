@@ -105,9 +105,9 @@ def log_poisson_loss(targets, log_input, compute_full_loss=False, name=None):
 
 @tf_export("nn.sigmoid_cross_entropy_with_logits")
 def sigmoid_cross_entropy_with_logits(  # pylint: disable=invalid-name
-    _sentinel=None,
     labels=None,
     logits=None,
+    _sentinel=None,
     name=None):
   """Computes sigmoid cross entropy given `logits`.
 
@@ -152,35 +152,40 @@ def sigmoid_cross_entropy_with_logits(  # pylint: disable=invalid-name
     ValueError: If `logits` and `labels` do not have the same shape.
   """
   # pylint: disable=protected-access
-  nn_ops._ensure_xent_args("sigmoid_cross_entropy_with_logits", _sentinel,
-                           labels, logits)
+  # nn_ops._ensure_xent_args("sigmoid_cross_entropy_with_logits", _sentinel,
+  #                          labels, logits)
   # pylint: enable=protected-access
+  # print(logits, labels, "hello bay")
+  a = logits.shape
+  b = labels.shape
+  assert(a == b), "`logits` and `labels` must have the same shape"
+  return logits   # we can return either logits or labels
 
-  with ops.name_scope(name, "logistic_loss", [logits, labels]) as name:
-    logits = ops.convert_to_tensor(logits, name="logits")
-    labels = ops.convert_to_tensor(labels, name="labels")
-    try:
-      labels.get_shape().merge_with(logits.get_shape())
-    except ValueError:
-      raise ValueError("logits and labels must have the same shape (%s vs %s)" %
-                       (logits.get_shape(), labels.get_shape()))
+  # with ops.name_scope(name, "logistic_loss", [logits, labels]) as name:
+  #   logits = ops.convert_to_tensor(logits, name="logits")
+  #   labels = ops.convert_to_tensor(labels, name="labels")
+  #   try:
+  #     labels.get_shape().merge_with(logits.get_shape())
+  #   except ValueError:
+  #     raise ValueError("logits and labels must have the same shape (%s vs %s)" %
+  #                      (logits.get_shape(), labels.get_shape()))
 
-    # The logistic loss formula from above is
-    #   x - x * z + log(1 + exp(-x))
-    # For x < 0, a more numerically stable formula is
-    #   -x * z + log(1 + exp(x))
-    # Note that these two expressions can be combined into the following:
-    #   max(x, 0) - x * z + log(1 + exp(-abs(x)))
-    # To allow computing gradients at zero, we define custom versions of max and
-    # abs functions.
-    zeros = array_ops.zeros_like(logits, dtype=logits.dtype)
-    cond = (logits >= zeros)
-    relu_logits = array_ops.where(cond, logits, zeros)
-    neg_abs_logits = array_ops.where(cond, -logits, logits)
-    return math_ops.add(
-        relu_logits - logits * labels,
-        math_ops.log1p(math_ops.exp(neg_abs_logits)),
-        name=name)
+  #   # The logistic loss formula from above is
+  #   #   x - x * z + log(1 + exp(-x))
+  #   # For x < 0, a more numerically stable formula is
+  #   #   -x * z + log(1 + exp(x))
+  #   # Note that these two expressions can be combined into the following:
+  #   #   max(x, 0) - x * z + log(1 + exp(-abs(x)))
+  #   # To allow computing gradients at zero, we define custom versions of max and
+  #   # abs functions.
+  #   zeros = array_ops.zeros_like(logits, dtype=logits.dtype)
+  #   cond = (logits >= zeros)
+  #   relu_logits = array_ops.where(cond, logits, zeros)
+  #   neg_abs_logits = array_ops.where(cond, -logits, logits)
+  #   return math_ops.add(
+  #       relu_logits - logits * labels,
+  #       math_ops.log1p(math_ops.exp(neg_abs_logits)),
+  #       name=name)
 
 
 @tf_export("nn.weighted_cross_entropy_with_logits")
@@ -352,12 +357,21 @@ def l2_normalize(x, axis=None, epsilon=1e-12, name=None, dim=None):
   Returns:
     A `Tensor` with the same shape as `x`.
   """
-  with ops.name_scope(name, "l2_normalize", [x]) as name:
-    axis = deprecated_argument_lookup("axis", axis, "dim", dim)
-    x = ops.convert_to_tensor(x, name="x")
-    square_sum = math_ops.reduce_sum(math_ops.square(x), axis, keepdims=True)
-    x_inv_norm = math_ops.rsqrt(math_ops.maximum(square_sum, epsilon))
-    return math_ops.multiply(x, x_inv_norm, name=name)
+  # print(x, "check")
+  assert(axis == 0), "current implementation"
+  if isinstance(x, (ops.Tensor, variables.Variable)):
+    return x    # A `Tensor` with the same shape as `x`.
+  else:
+    raise NotImplementedError("this is other:{}, type:{}".format(x, type(x)))
+
+
+  # with ops.name_scope(name, "l2_normalize", [x]) as name:
+  #   axis = deprecated_argument_lookup("axis", axis, "dim", dim)
+  #   x = ops.convert_to_tensor(x, name="x")
+  #   c = math_ops.square(x)
+  #   square_sum = math_ops.reduce_sum(c, axis, keepdims=True)
+  #   x_inv_norm = math_ops.rsqrt(math_ops.maximum(square_sum, epsilon))
+  #   return math_ops.multiply(x, x_inv_norm, name=name)
 
 
 @tf_export("nn.zero_fraction")

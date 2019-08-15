@@ -556,6 +556,14 @@ def batch_norm(inputs,
     ValueError: If the rank of `inputs` is undefined.
     ValueError: If rank or channels dimension of `inputs` is undefined.
   """
+  
+  if isinstance(inputs, ops.our_Operation):   # the input of this must be an our_Operation object
+    inputs.name_op = inputs.name_op + "_+_log"
+  # elif isinstance(x, list):   # something like [0.1]
+    # shape = list(np.array(x).shape)
+    # return ops.Tensor(shape)
+  return inputs
+  
   if fused is None:
     fused = True
 
@@ -568,8 +576,16 @@ def batch_norm(inputs,
   #   or non-default updates_collections (not implemented in
   #   normalization_layers.BatchNormalization yet); otherwise use the fused
   #   implementation in normalization_layers.BatchNormalization.
-  inputs = ops.convert_to_tensor(inputs)
-  rank = inputs.get_shape().ndims
+  # print(inputs, "heelo ")
+  # inputs = ops.convert_to_tensor(inputs)
+  # rank = inputs.get_shape().ndims
+  # if isinstance(inputs, ops.our_Operation):
+  #   rank = inputs.fwd_func(*inputs.input_nodes).shape
+  # elif isinstance(inputs, ops.Tensor):
+  #   rank = len(inputs.get_shape())
+  # else:
+  #   raise NotImplementedError("this is the type of inputs:{}".format(type(inputs)))
+
   possible_to_fuse = (
       batch_weights is None and not renorm and rank in [2, 4] and
       adjustment is None)
@@ -604,7 +620,7 @@ def batch_norm(inputs,
       'BatchNorm', [inputs],
       reuse=reuse,
       custom_getter=layer_variable_getter) as sc:
-    inputs = ops.convert_to_tensor(inputs)
+    # inputs = ops.convert_to_tensor(inputs)
 
     # Determine whether we can use the core layer class.
     if (batch_weights is None and
@@ -673,11 +689,17 @@ def batch_norm(inputs,
     if renorm:
       raise ValueError('renorm is not supported with batch_weights, '
                        'updates_collections or zero_debias_moving_mean')
-    inputs_shape = inputs.get_shape()
-    inputs_rank = inputs_shape.ndims
+    if isinstance(inputs, ops.our_Operation):
+      inputs_shape = inputs.fwd_func(*inputs.input_nodes).shape
+    elif isinstance(inputs, ops.Tensor):
+      inputs_shape = len(inputs.get_shape())
+    else:
+      raise NotImplementedError("this is the type of inputs:{}".format(type(inputs)))
+    # inputs_shape = inputs.get_shape()
+    inputs_rank = len(inputs_shape)   #.ndims
     if inputs_rank is None:
       raise ValueError('Inputs %s has undefined rank.' % inputs.name)
-    dtype = inputs.dtype.base_dtype
+    # dtype = inputs.dtype.base_dtype
     if batch_weights is not None:
       batch_weights = ops.convert_to_tensor(batch_weights)
       inputs_shape[0:1].assert_is_compatible_with(batch_weights.get_shape())

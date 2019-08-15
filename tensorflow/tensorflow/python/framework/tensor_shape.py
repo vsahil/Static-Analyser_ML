@@ -1046,23 +1046,28 @@ def reshape(tensor, shape, name=None):
       # don't do the new shape calculation as we are now using the forward function
       # Rule 1
       if None in shap and -1 in shape:
-        pass
+        new_shape =  [None if x==-1 else x for x in shape]
         # new_shape =  [None if x==-1 else x for x in shape]
       # Rule 2
       elif None in shap and not -1 in shape:
         div = np.prod([i for i in shap if i])
         assert(np.prod(shape) % div == 0), "{} must be divisible by {}".format(np.prod(shape), div)
-        # new_shape = shape
+        new_shape = shape
       # Rule 3
       elif -1 in shape:
         assert(np.prod(shap) % (-np.prod(shape)) == 0), "{} must be divisible by {}".format(np.prod(shap), -np.prod(shape))
-        # th = -(np.prod(shap) // np.prod(shape))
-        # new_shape = [th if x==-1 else x for x in shape]
+        th = -(np.prod(shap) // np.prod(shape))
+        new_shape = [th if x==-1 else x for x in shape]
       # Rule 4 
       else:
         assert(np.prod(shap) == np.prod(shape))
-        # new_shape = shape
+        new_shape = shape
 
+      if isinstance(tensor, ops.Tensor):      # no need to make it an operation if input is Tensor
+        this_tensor = ops.Tensor(new_shape)
+        gph = ops.our_Graph.get_default_graph()
+        gph.created_tensors.append(this_tensor)
+        return this_tensor
       
       def forward(tensor, shape):
         if isinstance(tensor, ops.Tensor):
@@ -1228,6 +1233,15 @@ def conv2d(input, filter, strides, padding, use_cudnn_on_gpu=True, data_format="
   # put assert on padding
   # output[b, i, j, k] = sum_{di, dj, q} input[b, strides[1] * i + di, strides[2] * j + dj, q] * filter[di, dj, q, k]
   # assert(padding == "VALID" or padding )
+  
+  def tell(shap, strides, filter):    # for calculating the shape at position 1 and 2 for non-unit stride
+    import math
+    padding_1 = (filter.shape[1] - 1) // 2     # padding along dimension 1 
+    padding_2 = (filter.shape[2] - 1) // 2     # padding along dimension 2
+    pos_1 = int(math.floor((shap[1] + (2*padding_1) - filter.shape[1]) / strides[1])) + 1
+    pos_2 = int(math.floor((shap[2] + (2*padding_2) - filter.shape[2]) / strides[2])) + 1
+    return (pos_1, pos_2)
+
   if isinstance(input, ops.Tensor):
     shap = input.shape
   elif isinstance(input, ops.our_Operation):
@@ -1236,13 +1250,30 @@ def conv2d(input, filter, strides, padding, use_cudnn_on_gpu=True, data_format="
   else:
     print("this is the type of input{}".format(type(input))); raise NotImplementedError
   
-  assert(shap[1] == shap[2]), "inheight and inwidth must be equal"     
+  # assert(shap[1] == shap[2]), "inheight and inwidth must be equal"     
   assert(filter.shape[0] == filter.shape[1]), "filter height and filter weight must be equal"
-  assert(all(i == 1 for i in strides)), "currently implementation only works for strides = 1"
+  # assert(all(i == 1 for i in strides)), "currently implementation only works for strides = 1"
   assert(dilations == [1,1,1,1] and data_format == "NHWC"), "this basically means no difference in shape from convoulution without dilation"
   if padding == "VALID":
     assert(shap[1] >= filter.shape[0]), "Input shape[1] must be larger than or equal to filter.shape[0]"
     assert(shap[2] >= filter.shape[1]), "Input shape[1] must be larger than or equal to filter.shape[0]"
+    if all(i == 1 for i in strides):
+      output_shape = [shap[0], (shap[1]-filter.shape[0] + 1), (shap[2]-filter.shape[1] + 1), filter.shape[3]]
+    else:
+      raise NotImplementedError("Implement non-unit stride with valid padding")
+  else:
+    if all(i == 1 for i in strides):
+      output_shape = [shap[0], shap[1], shap[2], filter.shape[3]]
+    else:
+      pos_1, pos_2 = tell(shap, strides, filter)
+      output_shape = [shap[0], pos_1, pos_2, filter.shape[3]]
+  
+  if isinstance(input, ops.Tensor):
+    this_tensor = ops.Tensor(output_shape)
+    gph = ops.our_Graph.get_default_graph()
+    gph.created_tensors.append(this_tensor)
+    return this_tensor
+      
 
   def forward(input, filer):    # padding assessible without passing as well, and it doesn't change
     if isinstance(input, ops.Tensor):
@@ -1252,14 +1283,21 @@ def conv2d(input, filter, strides, padding, use_cudnn_on_gpu=True, data_format="
     else:
       print("this is the type of input{}".format(type(input))); raise NotImplementedError
     
-    assert(shap[1] == shap[2]), "inheight and inwidth must be equal"   
+    # assert(shap[1] == shap[2]), "inheight and inwidth must be equal"   
     assert(filter.shape[0] == filter.shape[1]), "filter height and filter weight must be equal"
     if padding == "VALID":
       assert(shap[1] >= filter.shape[0]), "Input shape[1] must be larger than or equal to filter.shape[0]"
       assert(shap[2] >= filter.shape[1]), "Input shape[1] must be larger than or equal to filter.shape[0]"
-      output_shape = [shap[0], (shap[1]-filter.shape[0] + 1), (shap[2]-filter.shape[1] + 1), filter.shape[3]]
+      if all(i == 1 for i in strides):
+        output_shape = [shap[0], (shap[1]-filter.shape[0] + 1), (shap[2]-filter.shape[1] + 1), filter.shape[3]]
+      else:
+        raise NotImplementedError("Implement non-unit stride with valid padding")
     else:
-      output_shape = [shap[0], shap[1], shap[2], filter.shape[3]]
+      if all(i == 1 for i in strides):
+        output_shape = [shap[0], shap[1], shap[2], filter.shape[3]]
+      else:
+        pos_1, pos_2 = tell(shap, strides, filter)
+        output_shape = [shap[0], pos_1, pos_2, filter.shape[3]]
     
     return ops.Tensor(output_shape)    # No dtype
 
@@ -1339,8 +1377,8 @@ def relu(features, name=None):
     A `Tensor`. Has the same type as `features`.
   """
   # I am not checking the type of the input
-  # if isinstance(features, ops.our_Operation):   # the input of this must be an our_Operation object
-  features.name_op = features.name_op + "_+_nn.relu"
+  if isinstance(features, ops.our_Operation):   # the input of this must be an our_Operation object
+    features.name_op = features.name_op + "_+_nn.relu"
   return features   # output shape is same as input shape, just returning object
 
   # _ctx = _context._context

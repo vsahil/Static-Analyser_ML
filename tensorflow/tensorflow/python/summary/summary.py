@@ -99,6 +99,7 @@ def scalar(name, tensor, collections=None, family=None):
   Raises:
     ValueError: If tensor has the wrong shape or type.
   """
+  return      # turned to No-op
   if _summary_op_util.skip_summary():
     return _constant_op.constant('')
   with _summary_op_util.summary_scope(
@@ -154,6 +155,7 @@ def image(name, tensor, max_outputs=3, collections=None, family=None):
     A scalar `Tensor` of type `string`. The serialized `Summary` protocol
     buffer.
   """
+  return      # turned to No-op
   if _summary_op_util.skip_summary():
     return _constant_op.constant('')
   with _summary_op_util.summary_scope(
@@ -194,6 +196,7 @@ def histogram(name, values, collections=None, family=None):
     A scalar `Tensor` of type `string`. The serialized `Summary` protocol
     buffer.
   """
+  return      # turned to No-op
   if _summary_op_util.skip_summary():
     return _constant_op.constant('')
   with _summary_op_util.summary_scope(
@@ -287,6 +290,7 @@ def merge(inputs, collections=None, name=None):
   @end_compatbility
   """
   # pylint: enable=line-too-long
+  return      # turned to No-op
   if _context.executing_eagerly():
     raise RuntimeError(
         'Merging tf.summary.* ops is not compatible with eager execution. '

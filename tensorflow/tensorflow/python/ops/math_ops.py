@@ -1578,7 +1578,7 @@ def reduce_sum(input_tensor,
   keepdims = deprecation.deprecated_argument_lookup("keepdims", keepdims, "keep_dims", keep_dims)
   if keepdims is None:
     keepdims = False
-  assert(not(keepdims) and not(reduction_indices)), "current implementation"
+  assert(not(reduction_indices)), "current implementation"
   if axis:
     if isinstance(axis, list):
       pass
@@ -1588,6 +1588,33 @@ def reduce_sum(input_tensor,
       raise NotImplementedError
     assert(all(len(input_tensor.shape) > i > -len(input_tensor.shape)) for i in axis), "Must be in the range `[-rank(input_tensor), rank(input_tensor))`"
   
+  if isinstance(input_tensor, ops.Tensor):
+    shap = input_tensor.shape
+    if shap:
+      result = [1]      # need to make it a list
+    if axis and shap:
+      result = shap[:]
+      if isinstance(axis, list):
+        pass
+      elif isinstance(axis, int):
+        axis = [axis]
+      else:
+        raise NotImplementedError
+      for ax in axis:
+        result.pop(ax)
+    # print("dee", keepdims, shap, axis, input_tensor)
+    # assert False
+    this_tensor = ops.Tensor(result)
+    gph = ops.our_Graph.get_default_graph()
+    gph.created_tensors.append(this_tensor)
+    return this_tensor
+  
+  elif isinstance(input_tensor, ops.our_Operation):
+    pass
+  
+  else:
+    raise NotImplementedError("this is the type of input".format(type(input_tensor)))
+
   # Whatever be the input, the output is going to be an our_Operation object
   
   def forward(input_t):   # it will get axis from above, no check for axis here
@@ -1757,7 +1784,18 @@ def reduce_mean(input_tensor,
   if axis:
     raise NotImplementedError
     assert(all(len(input_tensor.shape) > i > -len(input_tensor.shape)) for i in axis), "Must be in the range `[-rank(input_tensor), rank(input_tensor))`"
-  
+
+  result = None
+  if isinstance(input_tensor, ops.Tensor):
+    shap = input_tensor.shape
+    if shap:
+      result = [1]
+    this_tensor = ops.Tensor(result)
+    gph = ops.our_Graph.get_default_graph()
+    gph.created_tensors.append(this_tensor)
+    return this_tensor
+
+
   def forward(input_t):
     result = None
     if isinstance(input_t, ops.our_Operation):
@@ -1927,13 +1965,44 @@ def reduce_max(input_tensor,
                                                     "keep_dims", keep_dims)
   if keepdims is None:
     keepdims = False
-  return _may_reduce_to_scalar(keepdims, axis, reduction_indices,
-                               gen_math_ops._max(
-                                   input_tensor,
-                                   _ReductionDims(input_tensor, axis,
-                                                  reduction_indices),
-                                   keepdims,
-                                   name=name))
+  
+  if axis:
+    if isinstance(axis, list):
+      pass
+    elif isinstance(axis, int):
+      axis = [axis]
+    else:
+      raise NotImplementedError
+    assert(all(len(input_tensor.shape) > i > -len(input_tensor.shape)) for i in axis), "Must be in the range `[-rank(input_tensor), rank(input_tensor))`"
+  
+  if isinstance(input_tensor, ops.Tensor):
+    shap = input_tensor.shape
+    if shap:
+      result = [1]      # need to make it a list
+    if axis and shap:
+      result = shap[:]
+      if isinstance(axis, list):
+        pass
+      elif isinstance(axis, int):
+        axis = [axis]
+      else:
+        raise NotImplementedError
+      for ax in axis:
+        result.pop(ax)
+    # print("dee", keepdims, shap, axis, input_tensor)
+    # assert False
+    return ops.Tensor(result)
+
+  else:
+    raise NotImplementedError("this is the type of input".format(type(input_tensor)))
+  
+  # return _may_reduce_to_scalar(keepdims, axis, reduction_indices,
+  #                              gen_math_ops._max(
+  #                                  input_tensor,
+  #                                  _ReductionDims(input_tensor, axis,
+  #                                                 reduction_indices),
+  #                                  keepdims,
+  #                                  name=name))
 
 
 @tf_export("reduce_all")
@@ -2278,10 +2347,12 @@ def matmul(a,
     ValueError: If transpose_a and adjoint_a, or transpose_b and adjoint_b
       are both set to True.
   """
+  yes_it_is_an_operation = False
   assert(transpose_a == transpose_b == adjoint_a == adjoint_b == a_is_sparse == b_is_sparse == False)    # as we have not yet implemented them
   if isinstance(a, (ops.Tensor, variables.Variable)):
     shape1 = a.shape
   elif isinstance(a, ops.our_Operation):
+    yes_it_is_an_operation = True
     obj1 = a.fwd_func(*a.input_nodes)
     if isinstance(obj1, ops.Tensor):
       shape1 = obj1.shape
@@ -2291,16 +2362,33 @@ def matmul(a,
   if isinstance(b, (ops.Tensor, variables.Variable)):
     shape2 = b.shape  
   elif isinstance(b, ops.our_Operation):
+    yes_it_is_an_operation = True
     shape2 = b.fwd_func(*b.input_nodes).shape
 
   else:
     print(type(a), type(b), "These are the types")
     raise NotImplementedError
   assert(len(shape1) >= 2 and len(shape2) >= 2), "These are the minimum required shape dimensions"
-  assert (shape1[-1] == shape2[-2]), "Not conformable!"      # last element of the first matches the second last element of second
-  def checkConformability(L1, L2):
-      return len(L1) == len(L2) and sorted(L1) == sorted(L2)
-  assert (checkConformability(shape1[:-2], shape2[:-2])), "Not conformable!"       # handles multidimensional matrices
+  if len(shape1) == 2 and shape2 == "<unknown>":
+    res_shape = [shape1[0], None]
+    if not yes_it_is_an_operation:
+      this_tensor = ops.Tensor(res_shape)
+      gph = ops.our_Graph.get_default_graph()
+      gph.created_tensors.append(this_tensor)
+      return this_tensor
+  else:
+    assert (shape1[-1] == shape2[-2]), "Not conformable!"      # last element of the first matches the second last element of second
+    def checkConformability(L1, L2):
+        return len(L1) == len(L2) and sorted(L1) == sorted(L2)
+    assert (checkConformability(shape1[:-2], shape2[:-2])), "Not conformable!"       # handles multidimensional matrices
+  
+  if not yes_it_is_an_operation:     # if none of the inputs are Operation object, you can return a tensor, instead of operation
+    res_shape = [*shape1[:-2], shape1[-2], shape2[-1]]
+    this_tensor = ops.Tensor(res_shape)
+    gph = ops.our_Graph.get_default_graph()
+    gph.created_tensors.append(this_tensor)
+    return this_tensor
+    
   # result_shape = [*shape1[:-2], shape1[-2], shape2[-1]]
   # if isinstance(a, variables.Variable) and isinstance(b, variables.Variable):    # assert the types of a and b you wanna use for now
     # return variables.Variable(result_shape)
@@ -2328,9 +2416,12 @@ def matmul(a,
       print(type(a), type(b), b, "These are the types")
       raise NotImplementedError
     assert(len(shape1) >= 2 and len(shape2) >= 2), "These are the minimum required shape dimensions"
-    assert (shape1[-1] == shape2[-2]), "Not conformable!"
-    assert (checkConformability(shape1[:-2], shape2[:-2])), "Not conformable!"    # need to put the checks inside matmul here as well, because this is what is being used in operation graph in session
-    result_shape = [*shape1[:-2], shape1[-2], shape2[-1]]
+    if shape1 == [None, None] and shape2 == "<unknown>":    # for Github/UT-2
+      result_shape = [None, None]
+    else:
+      assert (shape1[-1] == shape2[-2]), "Not conformable!"
+      assert (checkConformability(shape1[:-2], shape2[:-2])), "Not conformable!"    # need to put the checks inside matmul here as well, because this is what is being used in operation graph in session
+      result_shape = [*shape1[:-2], shape1[-2], shape2[-1]]
     return ops.Tensor(result_shape)   # it returns another Tensor
 
   this_operation = ops.our_Operation([a, b], ffnc=forward, name="matmul")   # create a new operation object each time
@@ -2625,7 +2716,8 @@ def sigmoid(x, name=None):
   Equivalent to np.scipy.special.expit
   @end_compatibility
   """
-  x.name_op = x.name_op + "_+_sigmoid"    # asserting that is it an operation object 
+  if isinstance(x, ops.our_Operation):
+    x.name_op = x.name_op + "_+_sigmoid"    # asserting that is it an operation object 
   return x   # output shape is same as input shape, just returning object
   
   # return ops.Tensor(x.shape)    # same shape; no dtype
@@ -2666,6 +2758,10 @@ def tanh(x, name=None):
   Returns:
     A Tensor or SparseTensor respectively with the same type as `x`.
   """
+  if isinstance(x, ops.our_Operation):
+    x.name_op = x.name_op + "_+_sigmoid"    # asserting that is it an operation object 
+  return x
+
   with ops.name_scope(name, "Tanh", [x]) as name:
     if isinstance(x, sparse_tensor.SparseTensor):
       x_tanh = gen_math_ops.tanh(x.values, name=name)
@@ -3378,6 +3474,9 @@ def log(x, name=None):
   # assert(all)     # Check that no negative number is used
   if isinstance(x, ops.our_Operation):   # the input of this must be an our_Operation object
     x.name_op = x.name_op + "_+_log"
+  elif isinstance(x, list):   # something like [0.1]
+    shape = list(np.array(x).shape)
+    return ops.Tensor(shape)
   return x    # same shape as input
 
   # _ctx = _context._context or _context.context()
@@ -3422,6 +3521,148 @@ def log(x, name=None):
   #     "Log", _inputs_flat, _attrs, _result, name)
   # _result, = _result
   # return _result
+
+
+
+@tf_export('lgamma')
+def lgamma(x, name=None):
+  r"""Computes the log of the absolute value of `Gamma(x)` element-wise.
+
+  Args:
+    x: A `Tensor`. Must be one of the following types: `bfloat16`, `half`, `float32`, `float64`.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `x`.
+  """
+  if isinstance(x, ops.our_Operation):   # the input of this must be an our_Operation object
+    x.name_op = x.name_op + "_+_log"
+  elif isinstance(x, list):   # something like [0.1]
+    shape = list(np.array(x).shape)
+    return ops.Tensor(shape)
+  return x    # same shape as input
+
+  # _ctx = _context._context
+  # if _ctx is None or not _ctx._eager_context.is_eager:
+  #   _, _, _op = _op_def_lib._apply_op_helper(
+  #       "Lgamma", x=x, name=name)
+  #   _result = _op.outputs[:]
+  #   _inputs_flat = _op.inputs
+  #   _attrs = ("T", _op.get_attr("T"))
+  #   _execute.record_gradient(
+  #     "Lgamma", _inputs_flat, _attrs, _result, name)
+  #   _result, = _result
+  #   return _result
+
+  # else:
+  #   try:
+  #     _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+  #       _ctx._context_handle, _ctx._eager_context.device_name, "Lgamma", name,
+  #       _ctx._post_execution_callbacks, x)
+  #     return _result
+  #   except _core._FallbackException:
+  #     return lgamma_eager_fallback(
+  #         x, name=name, ctx=_ctx)
+  #   except _core._NotOkStatusException as e:
+  #     if name is not None:
+  #       message = e.message + " name: " + name
+  #     else:
+  #       message = e.message
+  #     _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+
+@tf_export('maximum')
+def maximum(x, y, name=None):
+  r"""Returns the max of x and y (i.e. x > y ? x : y) element-wise.
+
+  *NOTE*: `Maximum` supports broadcasting. More about broadcasting
+  [here](http://docs.scipy.org/doc/numpy/user/basics.broadcasting.html)
+
+  Args:
+    x: A `Tensor`. Must be one of the following types: `bfloat16`, `half`, `float32`, `float64`, `int32`, `int64`.
+    y: A `Tensor`. Must have the same type as `x`.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `x`.
+  """
+  return add(x, y, name="maximum")
+
+  # _ctx = _context._context
+  # if _ctx is None or not _ctx._eager_context.is_eager:
+  #   _, _, _op = _op_def_lib._apply_op_helper(
+  #       "Maximum", x=x, y=y, name=name)
+  #   _result = _op.outputs[:]
+  #   _inputs_flat = _op.inputs
+  #   _attrs = ("T", _op.get_attr("T"))
+  #   _execute.record_gradient(
+  #     "Maximum", _inputs_flat, _attrs, _result, name)
+  #   _result, = _result
+  #   return _result
+
+  # else:
+  #   try:
+  #     _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+  #       _ctx._context_handle, _ctx._eager_context.device_name, "Maximum",
+  #       name, _ctx._post_execution_callbacks, x, y)
+  #     return _result
+  #   except _core._FallbackException:
+  #     return maximum_eager_fallback(
+  #         x, y, name=name, ctx=_ctx)
+  #   except _core._NotOkStatusException as e:
+  #     if name is not None:
+  #       message = e.message + " name: " + name
+  #     else:
+  #       message = e.message
+  #     _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+
+
+@tf_export('minimum')
+def minimum(x, y, name=None):
+  r"""Returns the min of x and y (i.e. x < y ? x : y) element-wise.
+
+  *NOTE*: `Minimum` supports broadcasting. More about broadcasting
+  [here](http://docs.scipy.org/doc/numpy/user/basics.broadcasting.html)
+
+  Args:
+    x: A `Tensor`. Must be one of the following types: `bfloat16`, `half`, `float32`, `float64`, `int32`, `int64`.
+    y: A `Tensor`. Must have the same type as `x`.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `x`.
+  """
+  return add(x, y, name="minimum")
+  
+  # _ctx = _context._context
+  # if _ctx is None or not _ctx._eager_context.is_eager:
+  #   _, _, _op = _op_def_lib._apply_op_helper(
+  #       "Minimum", x=x, y=y, name=name)
+  #   _result = _op.outputs[:]
+  #   _inputs_flat = _op.inputs
+  #   _attrs = ("T", _op.get_attr("T"))
+  #   _execute.record_gradient(
+  #     "Minimum", _inputs_flat, _attrs, _result, name)
+  #   _result, = _result
+  #   return _result
+
+  # else:
+  #   try:
+  #     _result = _pywrap_tensorflow.TFE_Py_FastPathExecute(
+  #       _ctx._context_handle, _ctx._eager_context.device_name, "Minimum",
+  #       name, _ctx._post_execution_callbacks, x, y)
+  #     return _result
+  #   except _core._FallbackException:
+  #     return minimum_eager_fallback(
+  #         x, y, name=name, ctx=_ctx)
+  #   except _core._NotOkStatusException as e:
+  #     if name is not None:
+  #       message = e.message + " name: " + name
+  #     else:
+  #       message = e.message
+  #     _six.raise_from(_core._status_to_exception(e.code, message), None)
 
 
 
@@ -3530,16 +3771,27 @@ def add(x, y, name=None):
   Returns:
     A `Tensor`. Has the same type as `x`.
   """
-  
+  yes_it_is_operation = False
   if isinstance(x, ops.our_Operation):
+    yes_it_is_operation = True
     a = x.fwd_func(*x.input_nodes).shape
+  elif isinstance(x, (ops.Tensor, variables.Variable)):
+    a = x.shape
+  elif isinstance(x, (int, float)):
+    return y    # the shape is maintained
   else:
-    a = x.shape   # implicit tensor or variable
+    raise NotImplementedError("this is the type of x".format(type(x)))
   
   if isinstance(y, ops.our_Operation):
+    yes_it_is_operation = True
     b = y.fwd_func(*y.input_nodes).shape
+  elif isinstance(y, (ops.Tensor, variables.Variable)):
+    b = y.shape
+  elif isinstance(y, (int, float)):
+    return x    # the shape is maintained
   else:
-    b = y.shape   # implicit tensor or variable
+    raise NotImplementedError("this is the type of y".format(type(y)))
+    
   
   # remove None in shape:
   # a = list(filter(None, a))
@@ -3550,13 +3802,16 @@ def add(x, y, name=None):
   # don't calculate the output_shape here, only inside forward
   if len(a) == len(b):
     assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
-    # output_shape = [max(a[i], b[i]) for i in range(len(a))]
+    output_shape = [max(a[i], b[i]) for i in range(len(a))]
   elif len(a) > len(b):
     assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
-    # output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
+    output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
   else:
     assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
-    # output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
+    output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
+  
+  if not yes_it_is_operation:   # isinstance(x, ops.Tensor) and isinstance(y, ops.Tensor):
+    return ops.Tensor(output_shape)
   
   def forward(x, y):
     if isinstance(x, ops.our_Operation):
@@ -3727,3 +3982,5 @@ def greater(x, y, name=None):
   #     else:
   #       message = e.message
   #     _six.raise_from(_core._status_to_exception(e.code, message), None)
+
+

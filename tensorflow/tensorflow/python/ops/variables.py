@@ -325,17 +325,26 @@ class Variable(checkpointable.CheckpointableBase):
         elif isinstance(initial_value, ops.Tensor):
           assert(initial_value.shape), "Initial shape can't be None"
           ret = initial_value.shape     # so that a list is returned in all cases
+          assert(not all(not i for i in ret)), "Initial shape can't be all None in a list:{}".format(ret)
         elif isinstance(initial_value, numpy.ndarray):
           ret = list(initial_value.shape)     # as this is a tuple
         elif isinstance(initial_value, ops.our_Operation):
           ret = initial_value.fwd_func(*initial_value.input_nodes).shape
+        elif isinstance(initial_value, (int, float)):     # this means a single value
+          ret = [1]   # shape with single element, also has to be a list
+        elif callable(initial_value):       # isinstance(initial_value, function)
+          this_tensor = ops.convert_to_tensor(initial_value(), name="initial_value")  # This is a tensor
+          ret = this_tensor.shape
         else:
-          raise NotImplementedError("Not implemented for any other class {}".format(type(initial_value)))
+          raise NotImplementedError("Not implemented this value: {}, type: {}".format(initial_value, type(initial_value)))
     else:
       ret = expected_shape
     # print(initial_value, initial_value.shape)
+    if ret == []:
+      ret = [None]    # shape is None
     self.shape = ret    # no other attribute, just this
     self._initial_value = ops.Tensor(self.shape, dtype=dtypes.as_dtype(dtype).base_dtype if dtype else dtype)   # only convert if not None
+    self._name = name
 
     # if collections is None:
       # collections = [ops.GraphKeys.GLOBAL_VARIABLES]
@@ -635,20 +644,39 @@ class Variable(checkpointable.CheckpointableBase):
   #   """
   #   return self._constraint
 
-  # def assign(self, value, use_locking=False):
-  #   """Assigns a new value to the variable.
+  def assign(self, value, use_locking=False):
+    """Assigns a new value to the variable.
 
-  #   This is essentially a shortcut for `assign(self, value)`.
+    This is essentially a shortcut for `assign(self, value)`.
 
-  #   Args:
-  #     value: A `Tensor`. The new value for this variable.
-  #     use_locking: If `True`, use locking during the assignment.
+    Args:
+      value: A `Tensor`. The new value for this variable.
+      use_locking: If `True`, use locking during the assignment.
 
-  #   Returns:
-  #     A `Tensor` that will hold the new value of this variable after
-  #     the assignment has completed.
-  #   """
-  #   return state_ops.assign(self._variable, value, use_locking=use_locking)
+    Returns:
+      A `Tensor` that will hold the new value of this variable after
+      the assignment has completed.
+    """
+    if isinstance(value, list):
+      ret = value
+    elif isinstance(value, ops.Tensor):
+      assert(value.shape), "Initial shape can't be None"
+      ret = value.shape     # so that a list is returned in all cases
+    elif isinstance(value, numpy.ndarray):
+      ret = list(value.shape)     # as this is a tuple
+    elif isinstance(value, ops.our_Operation):
+      ret = value.fwd_func(*value.input_nodes).shape
+    elif isinstance(value, (int, float)):     # this means a single value
+      ret = [1]   # shape with single element, also has to be a list
+    elif callable(value):       # isinstance(value, function)
+      this_tensor = ops.convert_to_tensor(value(), name="initial_value")  # This is a tensor
+      ret = this_tensor.shape
+    else:
+      raise NotImplementedError("Not implemented this value: {}, type: {}".format(value, type(value)))
+
+    assert(self.shape == ret)   # just check that new shape is same as old shape, if yes, return self
+    return self     # no change in shape
+    # return state_ops.assign(self._variable, value, use_locking=use_locking)
 
   # def assign_add(self, delta, use_locking=False):
   #   """Adds a value to this variable.
@@ -1001,10 +1029,10 @@ class Variable(checkpointable.CheckpointableBase):
   # # with ndarrays.
   # __array_priority__ = 100
 
-  # @property
-  # def name(self):
-  #   """The name of this variable."""
-  #   return self._variable.name
+  @property
+  def name(self):
+    """The name of this variable."""
+    return self._name
 
   # @property
   # def _shared_name(self):
@@ -1052,9 +1080,9 @@ class Variable(checkpointable.CheckpointableBase):
   #   """
   #   return self._variable.get_shape()
 
-  # def get_shape(self):
-  #   """Alias of Variable.shape."""
-  #   return self.shape
+  def get_shape(self):
+    """Alias of Variable.shape."""
+    return self.shape
 
   # def to_proto(self, export_scope=None):
   #   """Converts a `Variable` to a `VariableDef` protocol buffer.

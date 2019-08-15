@@ -321,51 +321,150 @@ class Tensor(_TensorLike):
   def __add__(self, other):
     # print(self, type(self), type(other), self.shape, other.shape, "YEAH RADD INSIDE TENSOR CLASS")
     # initially other was of type Variable, but here it is of type tensor and you will see only this, 
-    assert(len(other.shape) == 1), "only doing it for bias in NN case"
-    assert(self.shape[-1] == other.shape[0]), "last dimension should be same"
-    return self     # this is output shape
-    # no change in shape, remains same
+    # assert(len(other.shape) == 1), "only doing it for bias in NN case"
+    # assert(self.shape[-1] == other.shape[0]), "last dimension should be same"
+    a = self.shape
+    gph = our_Graph.get_default_graph()
+    if isinstance(other, Tensor) or other in gph.variables:   # we couldn't import Variables here
+      b = other.shape
+    elif isinstance(other, (float, int)):
+      return self   # no change as int is being added or subtracted, produced no change
+    elif isinstance(other, our_Operation):
+      b = other.fwd_func(*other.input_nodes).shape
+    else:
+      raise NotImplementedError("this is other:{}, type:{}".format(other, type(other)))
+
+    if b == "<unknown>":
+      return Tensor(a)    # it will be the shape of a
+    elif a == "<unknown>":
+      return Tensor(b)  
+    
+    assert(isinstance(a, list) and isinstance(b, list))
+    # replace None by 1 in shapes:
+    a = [1 if x==None else x for x in a]
+    b = [1 if x==None else x for x in b]
+
+    if len(a) == len(b):      # BROADCASTING IMPLEMENTED
+      assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+      output_shape = [max(a[i], b[i]) for i in range(len(a))]
+    elif len(a) > len(b):
+      assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
+      output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
+    else:
+      assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+      output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
+
+    this_tensor = Tensor(output_shape)
+    gph = our_Graph.get_default_graph()
+    gph.created_tensors.append(this_tensor)
+    return this_tensor
   
   def __radd__(self, other):
+    return self.__add__(other)
+    # if isinstance(other, (int, float)):
+    #     return self       # no change in shape
+    # elif isinstance(other, Tensor):
+    #   return self.__add__(other)
+    # else:
+    #   print(type(self), type(other), "These are the types of self and other, checl", isinstance(other, Tensor))
+    #   return NotImplemented
+    
     # in this case the other guy is object of class our_operation, for instance it can be matmul, therefore the shape remains same as of other
     # assert(len(other.shape) == 1), "only doing it for the bias in NN case"
-    shp = other.fwd_func(*other.input_nodes).shape
-    # print(shp, "see the shp", self.shape)
-    assert(shp[-1] == self.shape[0]), "last dimension should be same"
-    return other     # this is output shape
+    # shp = other.fwd_func(*other.input_nodes).shape
+    # # print(shp, "see the shp", self.shape)
+    # assert(shp[-1] == self.shape[0]), "last dimension should be same"
+    # return other     # this is output shape
   
-  # def __mul__(self, other):
-  #   # print(self, other)
-  #   if isinstance(self, Tensor) and isinstance(other, Tensor):
-  #     shape1 = self.shape; shape2 = other.shape
-  #   # elif isinstance(self, (Tensor, Variable)) and isinstance(other, oo):
-  #     # shape1 = self.shape; shape2 = other.fwd_func(*other.input_nodes).shape
-  #   else:
-  #     print(type(self), type(other), "These are the types of self and other")
-  #     raise NotImplementedError
-  #   assert(shape1 == shape2), "for multiplication shape must be same"
-  #   return other    # this is output shape, irrespectively you can return other, right
+  def __mul__(self, other):
+    return self.__add__(other)
+    # if isinstance(other, (int, float)):
+    #   return self       # no change in shape
+    # elif isinstance(other, Tensor):
+    #   return self.__add__(other)
+    # else:
+    #   print(type(self), type(other), "These are the types of self and other, checl", isinstance(other, Tensor))
+    #   return NotImplemented
+    # # print(self, other)
+    # if isinstance(self, Tensor) and isinstance(other, Tensor):
+    #   shape1 = self.shape; shape2 = other.shape
+    # # elif isinstance(self, (Tensor, Variable)) and isinstance(other, oo):
+    #   # shape1 = self.shape; shape2 = other.fwd_func(*other.input_nodes).shape
+    # else:
+    #   print(type(self), type(other), "These are the types of self and other")
+    #   raise NotImplementedError
+    # assert(shape1 == shape2), "for multiplication shape must be same"
+    # return other    # this is output shape, irrespectively you can return other, right
 
+  def __rmul__(self, other):
+    return self.__add__(other)
+    # if isinstance(other, (int, float)):
+    #   return self       # no change in shape
+    # elif isinstance(other, Tensor):
+    #   return self.__add__(other)
+    # else:
+    #   print(type(self), type(other), "These are the types of self and other, checl", isinstance(other, Tensor))
+    #   return NotImplemented
+  
+  def __rsub__(self, other):
+    return self.__add__(other)
+    # if isinstance(other, (int, float)):
+    #   return self       # no change in shape
+    # elif isinstance(other, Tensor):
+    #   return self.__add__(other)
+    # else:
+    #   print(type(self), type(other), "These are the types of self and other, checl", isinstance(other, Tensor))
+    #   return NotImplemented
+  
   def __neg__(self):
     return self    # this is output shape  
   
+  def __abs__(self):
+    return self    # this is output shape
+
   def __getitem__(self, index):
-    return Tensor(None, None)     # returns a tensor which has no shape
+    # print(index, "HELLO SIR", any(isinstance(i, slice) for i in index))
+    if isinstance(index, int):
+      output_shape = self.shape[index]
+      if isinstance(output_shape, int):
+        output_shape = [output_shape]
+      assert(isinstance(output_shape, list))
+      return Tensor(output_shape)
+    elif any(isinstance(i, slice) for i in index):
+      output_shape = []
+      for i in index:
+        if isinstance(i, slice):
+          if not i.start and not i.stop and not i.step:
+            dimension = None
+          else:
+            dimension = len([i for i in range(i.start, i.stop, i.step if i.step else 1)])
+          output_shape.append(dimension)
+        elif isinstance(i, int):
+          pass
+        else:
+          raise NotImplementedError("this is type of item {} in index {}".format(i, index))
+      return Tensor(output_shape)  # this should be the output shape
+    else:
+      raise NotImplementedError("not done, {}".format(index))  
+      return Tensor([None])     # returns a tensor which has no shape
   
   def __rtruediv__(self, other):   # doing only for stddev in Ut-7/playing.py; so 1.0/tensor
     # assert(isinstance(other, float))    # obvious
-    assert(self.shape == None)
-    return self
+    return self.__add__(other)
+    # assert(self.shape == None)
+    # return self
   
   def __truediv__(self, other):   # doing only for tensor / (2 * n_samples) in Ut-10/
-    assert(self.shape == None)
-    return self
+    return self.__add__(other)
+    # assert(self.shape == None)
+    # return self
 
   def __sub__(self, other):   # implementing it for activation - Y in UT-10, Y.shape = None
-    if isinstance(other, our_Operation):
-      return NotImplemented      # for our_Operation should go to that class
-    assert(other.shape == None)
-    return Tensor(None)   # unknown shape
+    return self.__add__(other)
+    # if isinstance(other, our_Operation):
+    #   return NotImplemented      # for our_Operation should go to that class
+    # assert(other.shape == None)
+    # return Tensor(None)   # unknown shape
 
   # @property
   # def op(self):
@@ -561,35 +660,22 @@ class Tensor(_TensorLike):
     """
     other = tensor_shape.TensorShape(shape)   # now this is a tensorshape object
     other.assert_same_rank(self.shape)    # I this test is passed, then the new object shape is of the new shape thing, right
-    self.shape = shape    # don't use tensor_shape for shape, just a list, that is only for checking if conversion is alowed 
+    # self.shape = shape    # don't use tensor_shape for shape, just a list, that is only for checking if conversion is alowed 
   
-    # my_ts.assert_same_rank(other)
-    # if self._dims is None:
-    #   return other
-    # else:
-    #   try:
-        
-    #     new_dims = []
-    #     for i, dim in enumerate(self._dims):
-    #       new_dims.append(dim.merge_with(other[i]))
-    #     return TensorShape(new_dims)
-    #   except ValueError:
-    #     raise ValueError("Shapes %s and %s are not compatible" % (self, other))
-    
-    # def check_compatibility(s1, s2):
-    #     chk_dims1 = 1; chk_dims2 = 1
-    #     # print(len(s1), len(s2), s1, s2)
-    #     for i in s1:
-    #       chk_dims1 *= i
-    #     for i in s2:
-    #       chk_dims2 *= i
-    #     # print(chk_dims1, chk_dims2, s1)
-    #     return (chk_dims1 == chk_dims2)
-    # if not (str(self.shape) == "(?,)"):       # if the initial shape is None, it can take any shape
-    #   print("hello where are you", self.shape, shape, len(self.shape), len(shape))
-    #   assert(check_compatibility(self.shape, shape))
-    # # print(self.shape, not (str(self.shape) == "(?,)"), shape, "see sir")
-    # # return shape   # I am not yet sure, whether I should return a tf.placeholder object or just the dimensions
+    # my_ts.assert_same_rank(self.shape)
+    # if self._dims is None:    # in our case self._dims is equivalent to self.shape
+    if self.shape is None:
+      self.shape = shape
+    else:
+      try:
+        new_dims = []
+        for i, dim in enumerate(other):
+          new_dims.append(dim.merge_with(self.shape[i]).value)    # .value will give us just the element with it being of class Dimension
+        self.shape = new_dims
+        # print(new_dims, "HELOO SIR")
+        # return TensorShape(new_dims)
+      except ValueError:
+        raise ValueError("Shapes %s and %s are not compatible" % (self.shape, shape))
     
     # if _USE_C_SHAPES:  # pylint: disable=protected-access
     #   # Reset cached shape.
@@ -1154,6 +1240,7 @@ def internal_convert_to_tensor(value,
     dtype = dtypes.as_dtype(dtype)
   unwrapped_type = type(value)
   conversion_func_list = _tensor_conversion_func_cache.get(unwrapped_type, None)
+  # print(conversion_func_list, "Dekhiye ji bef\n")
   if conversion_func_list is None:
     with _tensor_conversion_func_lock:
       conversion_func_list = []
@@ -1163,11 +1250,12 @@ def internal_convert_to_tensor(value,
           if isinstance(value, base_type):
             conversion_func_list.append((base_type, conversion_func))
       _tensor_conversion_func_cache[unwrapped_type] = conversion_func_list
-
+  # print(conversion_func_list, "Dekhiye ji after", unwrapped_type)
   for base_type, conversion_func in conversion_func_list:
     # If dtype is None but preferred_dtype is not None, we try to
     # cast to preferred_dtype first.
     ret = None
+    # print("I am here", base_type, conversion_func, ret, dtype, preferred_dtype, "\n")
     if dtype is None and preferred_dtype is not None:
       try:
         ret = conversion_func(
@@ -1187,6 +1275,7 @@ def internal_convert_to_tensor(value,
 
     if ret is None:
       ret = conversion_func(value, dtype=dtype, name=name, as_ref=as_ref)
+      # print("after that I am here", ret)
 
     if ret is NotImplemented:
       continue
@@ -4019,6 +4108,7 @@ class Graph(object):
       list contains the values in the order under which they were
       collected.
     """  # pylint: disable=g-doc-exception
+
     _assert_collection_is_ok(name)
     with self._lock:
       collection = self._collections.get(name, None)
@@ -5627,9 +5717,13 @@ class our_Operation():
         elif isinstance(other, (float, int)):
           return self   # no change as int is being added or subtracted, produced no change
         
+        if b == "<unknown>":
+          return Tensor(a)    # it will be the shape of a
+        elif a == "<unknown>":
+          return Tensor(b)  
+        
+        assert(isinstance(a, list) and isinstance(b, list))
         # replace None by 1 in shapes:
-        # a = list(filter(None, a))
-        # b = list(filter(None, b))
         a = [1 if x==None else x for x in a]
         b = [1 if x==None else x for x in b]
 
@@ -5711,6 +5805,15 @@ class our_Operation():
       gph.operations.append(this_operation)
       return this_operation
 
+    # def set_shape(self, shape):
+    #   other = tensor_shape.TensorShape(shape)   # now this is a tensorshape object
+    #   a = self.fwd_func(*self.input_nodes).shape
+    #   other.assert_same_rank(a)    # I this test is passed, then the new object shape is of the new shape thing, right
+    #   def forward(self, shape):
+    #     other = tensor_shape.TensorShape(shape)   # now this is a tensorshape object
+    #     a = self.fwd_func(*self.input_nodes).shape
+    #     other.assert_same_rank(a)
+
 
 
 class our_Graph():
@@ -5722,6 +5825,7 @@ class our_Graph():
     self.constants = []
     self.identity_placeholders = []
     self.created_tensors = []     # this includes tensors which are created by the remaining operations, for eg. random_normal
+    self._collections = {}
     # self.child_operations = []
 
   # def as_default(self):
@@ -5780,6 +5884,206 @@ class our_Graph():
     for name in names:
       a.add_to_collection(name, value)
 
+  def get_collection(self, name, scope=None):
+    """Returns a list of values in the collection with the given `name`.
+
+    This is different from `get_collection_ref()` which always returns the
+    actual collection list if it exists in that it returns a new list each time
+    it is called.
+
+    Args:
+      name: The key for the collection. For example, the `GraphKeys` class
+        contains many standard names for collections.
+      scope: (Optional.) A string. If supplied, the resulting list is filtered
+        to include only items whose `name` attribute matches `scope` using
+        `re.match`. Items without a `name` attribute are never returned if a
+        scope is supplied. The choice of `re.match` means that a `scope` without
+        special tokens filters by prefix.
+
+    Returns:
+      The list of values in the collection with the given `name`, or
+      an empty list if no value has been added to that collection. The
+      list contains the values in the order under which they were
+      collected.
+    """  # pylint: disable=g-doc-exception
+    
+    # _assert_collection_is_ok(name)
+    # with self._lock:
+    collection = self._collections.get(name, None)
+    if collection is None:
+      return []
+    if scope is None:
+      return list(collection)
+    else:
+      c = []
+      regex = re.compile(scope)
+      for item in collection:
+        if hasattr(item, "name") and regex.match(item.name):
+          c.append(item)
+      return c
+
+  @tf_contextlib.contextmanager
+  def _colocate_with_for_gradient(self, op, gradient_uid,
+                                  ignore_existing=False):
+    with self.colocate_with(op, ignore_existing):
+      if gradient_uid is not None and self._control_flow_context is not None:
+        try:
+          self._control_flow_context.EnterGradientColocation(op, gradient_uid)
+          yield
+        finally:
+          self._control_flow_context.ExitGradientColocation(op, gradient_uid)
+      else:
+        yield
+
+  @tf_contextlib.contextmanager
+  def colocate_with(self, op, ignore_existing=False):
+    """Returns a context manager that specifies an op to colocate with.
+
+    Note: this function is not for public use, only for internal libraries.
+
+    For example:
+
+    ```python
+    a = tf.Variable([1.0])
+    with g.colocate_with(a):
+      b = tf.constant(1.0)
+      c = tf.add(a, b)
+    ```
+
+    `b` and `c` will always be colocated with `a`, no matter where `a`
+    is eventually placed.
+
+    **NOTE** Using a colocation scope resets any existing device constraints.
+
+    If `op` is `None` then `ignore_existing` must be `True` and the new
+    scope resets all colocation and device constraints.
+
+    Args:
+      op: The op to colocate all created ops with, or `None`.
+      ignore_existing: If true, only applies colocation of this op within
+        the context, rather than applying all colocation properties
+        on the stack.  If `op` is `None`, this value must be `True`.
+
+    Raises:
+      ValueError: if op is None but ignore_existing is False.
+
+    Yields:
+      A context manager that specifies the op with which to colocate
+      newly created ops.
+
+    """
+    if op is None and not ignore_existing:
+      raise ValueError("Trying to reset colocation (op is None) but "
+                       "ignore_existing is not True")
+
+    if op is not None and not isinstance(op, Operation):
+      # We always want to colocate with the reference op.
+      op = internal_convert_to_tensor_or_indexed_slices(op, as_ref=True).op
+
+    # By default, colocate_with resets the device function stack,
+    # since colocate_with is typically used in specific internal
+    # library functions where colocation is intended to be "stronger"
+    # than device functions.
+    #
+    # In the future, a caller may specify that device_functions win
+    # over colocation, in which case we can add support.
+    device_fn_tmp = self._device_function_stack
+    self._device_function_stack = []
+
+    if ignore_existing:
+      current_stack = self._colocation_stack
+      self._colocation_stack = []
+
+    if op is not None:
+      self._colocation_stack.append(op)
+
+    try:
+      yield
+    finally:
+      # Restore device function stack
+      self._device_function_stack = device_fn_tmp
+      if op is not None:
+        self._colocation_stack.pop()
+
+      # Reset the colocation stack if requested.
+      if ignore_existing:
+        self._colocation_stack = current_stack
+  
+  @tf_contextlib.contextmanager
+  def device(self, device_name_or_function):
+    # pylint: disable=line-too-long
+    """Returns a context manager that specifies the default device to use.
+
+    The `device_name_or_function` argument may either be a device name
+    string, a device function, or None:
+
+    * If it is a device name string, all operations constructed in
+      this context will be assigned to the device with that name, unless
+      overridden by a nested `device()` context.
+    * If it is a function, it will be treated as a function from
+      Operation objects to device name strings, and invoked each time
+      a new Operation is created. The Operation will be assigned to
+      the device with the returned name.
+    * If it is None, all `device()` invocations from the enclosing context
+      will be ignored.
+
+    For information about the valid syntax of device name strings, see
+    the documentation in
+    [`DeviceNameUtils`](https://www.tensorflow.org/code/tensorflow/core/util/device_name_utils.h).
+
+    For example:
+
+    ```python
+    with g.device('/device:GPU:0'):
+      # All operations constructed in this context will be placed
+      # on GPU 0.
+      with g.device(None):
+        # All operations constructed in this context will have no
+        # assigned device.
+
+    # Defines a function from `Operation` to device string.
+    def matmul_on_gpu(n):
+      if n.type == "MatMul":
+        return "/device:GPU:0"
+      else:
+        return "/cpu:0"
+
+    with g.device(matmul_on_gpu):
+      # All operations of type "MatMul" constructed in this context
+      # will be placed on GPU 0; all other operations will be placed
+      # on CPU 0.
+    ```
+
+    **N.B.** The device scope may be overridden by op wrappers or
+    other library code. For example, a variable assignment op
+    `v.assign()` must be colocated with the `tf.Variable` `v`, and
+    incompatible device scopes will be ignored.
+
+    Args:
+      device_name_or_function: The device name or function to use in
+        the context.
+
+    Yields:
+      A context manager that specifies the default device to use for newly
+      created ops.
+
+    """
+    # pylint: enable=line-too-long
+    if (device_name_or_function is not None and
+        not callable(device_name_or_function)):
+      device_function = pydev.merge_device(device_name_or_function)
+    else:
+      device_function = device_name_or_function
+
+    try:
+      self._device_function_stack.append(device_function)
+      yield
+    finally:
+      self._device_function_stack.pop()
+
+
+
+
 
 my_graph = our_Graph()    # creates an instance
 
@@ -5801,6 +6105,7 @@ def get_default_graph():
     The default `Graph` being used in the current thread.
   """
   # return our_Graph().as_default()
+  # return my_graph
   return _default_graph_stack.get_default()
 
 
@@ -6075,7 +6380,8 @@ def add_to_collection(name, value):
   Collections are not supported when eager execution is enabled.
   @end_compatibility
   """
-  get_default_graph().add_to_collection(name, value)
+  my_graph.add_to_collection(name, value)
+  # get_default_graph().add_to_collection(name, value)
 
 @tf_export("add_to_collections")
 def add_to_collections(names, value):
@@ -6093,7 +6399,8 @@ def add_to_collections(names, value):
   Collections are not supported when eager execution is enabled.
   @end_compatibility
   """
-  get_default_graph().add_to_collections(names, value)
+  my_graph.add_to_collections(names, value)
+  # get_default_graph().add_to_collections(names, value)
 
 
 @tf_export("get_collection_ref")
@@ -6146,7 +6453,9 @@ def get_collection(key, scope=None):
   Collections are not supported when eager execution is enabled.
   @end_compatibility
   """
-  return get_default_graph().get_collection(key, scope)
+  # assert False
+  return my_graph.get_collection(key, scope)
+  # return get_default_graph().get_collection(key, scope)
 
 
 def get_all_collection_keys():

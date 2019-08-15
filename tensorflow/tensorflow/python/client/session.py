@@ -729,6 +729,7 @@ class BaseSession(SessionInterface):
       A graph_pb2.GraphDef proto containing nodes for all of the Operations in
       the underlying TensorFlow graph.
     """
+    return    # no-op
     return self._graph.as_graph_def(add_shapes=self._add_shapes)
 
   @property

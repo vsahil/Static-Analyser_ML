@@ -96,9 +96,6 @@ class _ModuleInitCodeBuilder(object):
     import_str = format_import(source_module_name, source_name, dest_name)
 
     # Check if we are trying to expose two different symbols with same name.
-    # if "exp" in source_name:
-      # print("EW GOTCHA", source_name, import_str)
-      # return 
     full_api_name = dest_name
     if dest_module_name:
       # if this:
@@ -221,11 +218,23 @@ def get_api_init_text():
             continue
           
           if "exp" in str(module_contents_name) and names[-1] == "exp":    #  I added it to tensor_shape file and problem was solved, its being imported from tensor_shape in __init__.py # and ("gen_math_ops" in module.__name__ or "standard_ops" in module.__name__):
+            continue
+          
+          if "tile" in str(module_contents_name) and names[-1] == "tile" and "gen_array_ops" in module.__name__:    #  I added it to tensor_shape file and problem was solved, its being imported from tensor_shape in __init__.py # and ("gen_math_ops" in module.__name__ or "standard_ops" in module.__name__):
+            continue
+
+          if "lgamma" in str(module_contents_name) and names[-1] == "lgamma" and "gen_math_ops" in module.__name__:    #  I added it to tensor_shape file and problem was solved, its being imported from tensor_shape in __init__.py # and ("gen_math_ops" in module.__name__ or "standard_ops" in module.__name__):
+            continue
+          
+          if "maximum" in str(module_contents_name) and names[-1] == "maximum" and "gen_math_ops" in module.__name__:    #  I added it to tensor_shape file and problem was solved, its being imported from tensor_shape in __init__.py # and ("gen_math_ops" in module.__name__ or "standard_ops" in module.__name__):
+            continue
+
+          if "minimum" in str(module_contents_name) and names[-1] == "minimum" and "gen_math_ops" in module.__name__:    #  I added it to tensor_shape file and problem was solved, its being imported from tensor_shape in __init__.py # and ("gen_math_ops" in module.__name__ or "standard_ops" in module.__name__):
             # print(attr, module_contents_name, attr._tf_api_names, names, dest_module, id(attr), module.__name__, "HELLLO")
             # nw = dest_module + '.' + names[-1]
             # print(len(module_code_builder._dest_import_to_id), nw in module_code_builder._dest_import_to_id, "dekhio", len(module_code_builder._dest_import_to_id), nw in module_code_builder._dest_import_to_id)
             continue
-          
+
           module_code_builder.add_import(
               id(attr), dest_module, module.__name__, module_contents_name,
               names[-1])

@@ -114,6 +114,7 @@ class SummaryToEventTransformer(object):
       global_step: Number. Optional global step value to record with the
         summary.
     """
+    return      # turned to No-op
     if isinstance(summary, bytes):
       summ = summary_pb2.Summary()
       summ.ParseFromString(summary)

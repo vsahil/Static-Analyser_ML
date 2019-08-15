@@ -1216,43 +1216,49 @@ def conv2d_transpose(
     ValueError: If input/output depth does not match `filter`'s shape, or if
       padding is other than `'VALID'` or `'SAME'`.
   """
-  with ops.name_scope(name, "conv2d_transpose",
-                      [value, filter, output_shape]) as name:
-    if data_format not in ("NCHW", "NHWC"):
-      raise ValueError("data_format has to be either NCHW or NHWC.")
-    value = ops.convert_to_tensor(value, name="value")
-    filter = ops.convert_to_tensor(filter, name="filter")  # pylint: disable=redefined-builtin
-    axis = 3 if data_format == "NHWC" else 1
-    if not value.get_shape()[axis].is_compatible_with(filter.get_shape()[3]):
-      raise ValueError("input channels does not match filter's input channels, "
-                       "{} != {}".format(value.get_shape()[axis],
-                                         filter.get_shape()[3]))
+  assert(isinstance(output_shape, list))
+  this_tensor = ops.Tensor(output_shape)
+  gph = ops.our_Graph.get_default_graph()
+  gph.created_tensors.append(this_tensor)
+  return this_tensor
 
-    output_shape_ = ops.convert_to_tensor(output_shape, name="output_shape")
-    if not output_shape_.get_shape().is_compatible_with(tensor_shape.vector(4)):
-      raise ValueError("output_shape must have shape (4,), got {}".format(
-          output_shape_.get_shape()))
+  # with ops.name_scope(name, "conv2d_transpose",
+  #                     [value, filter, output_shape]) as name:
+  #   if data_format not in ("NCHW", "NHWC"):
+  #     raise ValueError("data_format has to be either NCHW or NHWC.")
+  #   value = ops.convert_to_tensor(value, name="value")
+  #   filter = ops.convert_to_tensor(filter, name="filter")  # pylint: disable=redefined-builtin
+  #   axis = 3 if data_format == "NHWC" else 1
+  #   if not value.get_shape()[axis].is_compatible_with(filter.get_shape()[3]):
+  #     raise ValueError("input channels does not match filter's input channels, "
+  #                      "{} != {}".format(value.get_shape()[axis],
+  #                                        filter.get_shape()[3]))
 
-    if isinstance(output_shape, (list, np.ndarray)):
-      # output_shape's shape should be == [4] if reached this point.
-      if not filter.get_shape()[2].is_compatible_with(output_shape[axis]):
-        raise ValueError(
-            "output_shape does not match filter's output channels, "
-            "{} != {}".format(output_shape[axis],
-                              filter.get_shape()[2]))
+  #   output_shape_ = ops.convert_to_tensor(output_shape, name="output_shape")
+  #   if not output_shape_.get_shape().is_compatible_with(tensor_shape.vector(4)):
+  #     raise ValueError("output_shape must have shape (4,), got {}".format(
+  #         output_shape_.get_shape()))
 
-    if padding != "VALID" and padding != "SAME":
-      raise ValueError("padding must be either VALID or SAME:"
-                       " {}".format(padding))
+  #   if isinstance(output_shape, (list, np.ndarray)):
+  #     # output_shape's shape should be == [4] if reached this point.
+  #     if not filter.get_shape()[2].is_compatible_with(output_shape[axis]):
+  #       raise ValueError(
+  #           "output_shape does not match filter's output channels, "
+  #           "{} != {}".format(output_shape[axis],
+  #                             filter.get_shape()[2]))
 
-    return gen_nn_ops.conv2d_backprop_input(
-        input_sizes=output_shape_,
-        filter=filter,
-        out_backprop=value,
-        strides=strides,
-        padding=padding,
-        data_format=data_format,
-        name=name)
+  #   if padding != "VALID" and padding != "SAME":
+  #     raise ValueError("padding must be either VALID or SAME:"
+  #                      " {}".format(padding))
+
+  #   return gen_nn_ops.conv2d_backprop_input(
+  #       input_sizes=output_shape_,
+  #       filter=filter,
+  #       out_backprop=value,
+  #       strides=strides,
+  #       padding=padding,
+  #       data_format=data_format,
+  #       name=name)
 
 
 @tf_export("nn.atrous_conv2d_transpose")
@@ -1500,11 +1506,14 @@ def bias_add(value, bias, data_format=None, name=None):
   Returns:
     A `Tensor` with the same type as `value`.
   """
-  with ops.name_scope(name, "BiasAdd", [value, bias]) as name:
-    if not context.executing_eagerly():
-      value = ops.convert_to_tensor(value, name="input")
-      bias = ops.convert_to_tensor(bias, dtype=value.dtype, name="bias")
-    return gen_nn_ops.bias_add(value, bias, data_format=data_format, name=name)
+  assert(len(bias.shape) == 1 and value.shape[-1] == bias.shape[0]), "bias should be 1-D `Tensor` with size matching the last dimension of `value`"
+  return value    # no change in shape
+
+  # with ops.name_scope(name, "BiasAdd", [value, bias]) as name:
+  #   if not context.executing_eagerly():
+  #     value = ops.convert_to_tensor(value, name="input")
+  #     bias = ops.convert_to_tensor(bias, dtype=value.dtype, name="bias")
+  #   return gen_nn_ops.bias_add(value, bias, data_format=data_format, name=name)
 
 
 def bias_add_v1(value, bias, name=None):

@@ -736,12 +736,12 @@ class _VariableStore(object):
         raise ValueError("Trying to share variable %s, but specified shape %s"
                          " and found shape %s." % (name, shape,
                                                    found_var.get_shape()))
-      if not dtype.is_compatible_with(found_var.dtype):
-        dtype_str = dtype.name
-        found_type_str = found_var.dtype.name
-        raise ValueError("Trying to share variable %s, but specified dtype %s"
-                         " and found dtype %s." % (name, dtype_str,
-                                                   found_type_str))
+      # if not dtype.is_compatible_with(found_var.dtype):
+      #   dtype_str = dtype.name
+      #   found_type_str = found_var.dtype.name
+      #   raise ValueError("Trying to share variable %s, but specified dtype %s"
+      #                    " and found dtype %s." % (name, dtype_str,
+      #                                              found_type_str))
       return found_var
 
     # The code below handles only the case of creating a new variable.
@@ -784,6 +784,7 @@ class _VariableStore(object):
         validate_shape=validate_shape,
         constraint=constraint,
         use_resource=use_resource)
+    # import ipdb; ipdb.set_trace()
     if not context.executing_eagerly() or self._store_eager_variables:
       # In eager mode we do not want to keep default references to Variable
       # objects as this will prevent their memory from being released.

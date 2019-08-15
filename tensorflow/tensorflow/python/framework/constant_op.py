@@ -181,6 +181,7 @@ def constant(value, dtype=None, shape=None, name="Const", verify_shape=False):
     TypeError: if shape is incorrectly specified or unsupported.
   """
   
+  # print("I AM ALSO HERE\n\n", shape, value, name)   # that means this constant is added to the const list
   if not shape and isinstance(value, list):   # this is used only is shape is None
     shape = list(np.array(value).shape)
   this_constant = ops.Tensor(shape, dtype)
