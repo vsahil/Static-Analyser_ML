@@ -98,6 +98,7 @@ def extract_labels(f, one_hot=False, num_classes=10):
   Raises:
     ValueError: If the bystream doesn't start with 2049.
   """
+  count = 0
   print('Extracting', f.name)
   with gzip.GzipFile(fileobj=f) as bytestream:
     magic = _read32(bytestream)
@@ -107,6 +108,8 @@ def extract_labels(f, one_hot=False, num_classes=10):
     num_items = _read32(bytestream)
     buf = bytestream.read(num_items)
     labels = numpy.frombuffer(buf, dtype=numpy.uint8)
+    count += 1
+    print("This is count", count)
     if one_hot:
       return dense_to_one_hot(labels, num_classes)
     return labels

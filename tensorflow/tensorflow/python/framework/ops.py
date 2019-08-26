@@ -5764,7 +5764,11 @@ class our_Operation():
         shape1 = self.fwd_func(*self.input_nodes).shape; shape2 = other.fwd_func(*other.input_nodes).shape
       else:
         raise NotImplementedError("These are the types of self:{} and other:{}".format(type(self), type(other)))
-      assert(shape1 == shape2), "for multiplication shape must be same %s %s"%(shape1, shape2)
+      assert(len(shape1) == len(shape2))
+      for i, j in zip(shape1, shape2):
+        if i and j:   # only for Non-None objects
+          assert(i == j), "for multiplication shape must be same %s %s"%(shape1, shape2)
+      # assert(shape1 == shape2), "for multiplication shape must be same %s %s"%(shape1, shape2)
       return self
     
     def __rmul__(self, other):
