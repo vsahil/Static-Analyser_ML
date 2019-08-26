@@ -2347,28 +2347,34 @@ def matmul(a,
     ValueError: If transpose_a and adjoint_a, or transpose_b and adjoint_b
       are both set to True.
   """
+  gph = ops.our_Graph.get_default_graph()
   yes_it_is_an_operation = False
   assert(transpose_a == transpose_b == adjoint_a == adjoint_b == a_is_sparse == b_is_sparse == False)    # as we have not yet implemented them
-  if isinstance(a, (ops.Tensor, variables.Variable)):
-    shape1 = a.shape
-  elif isinstance(a, ops.our_Operation):
+  if a in gph.placeholders or b in gph.placeholders:    # this is still a Tensor
+    yes_it_is_an_operation = True
+
+  if isinstance(a, ops.our_Operation):
     yes_it_is_an_operation = True
     obj1 = a.fwd_func(*a.input_nodes)
     if isinstance(obj1, ops.Tensor):
       shape1 = obj1.shape
     elif isinstance(obj1, ops.our_Operation):
       shape1 = obj1.fwd_func(*obj1.input_nodes).shape
-  
-  if isinstance(b, (ops.Tensor, variables.Variable)):
-    shape2 = b.shape  
-  elif isinstance(b, ops.our_Operation):
+  elif isinstance(a, (ops.Tensor, variables.Variable)):
+    shape1 = a.shape
+
+
+  if isinstance(b, ops.our_Operation):
     yes_it_is_an_operation = True
     shape2 = b.fwd_func(*b.input_nodes).shape
+  elif isinstance(b, (ops.Tensor, variables.Variable)):
+    shape2 = b.shape  
 
   else:
     print(type(a), type(b), "These are the types")
     raise NotImplementedError
   assert(len(shape1) >= 2 and len(shape2) >= 2), "These are the minimum required shape dimensions"
+  
   if len(shape1) == 2 and shape2 == "<unknown>":
     res_shape = [shape1[0], None]
     if not yes_it_is_an_operation:
@@ -2382,6 +2388,7 @@ def matmul(a,
         return len(L1) == len(L2) and sorted(L1) == sorted(L2)
     assert (checkConformability(shape1[:-2], shape2[:-2])), "Not conformable!"       # handles multidimensional matrices
   
+  # print(a, b, "SEEE", shape1, shape2)
   if not yes_it_is_an_operation:     # if none of the inputs are Operation object, you can return a tensor, instead of operation
     res_shape = [*shape1[:-2], shape1[-2], shape2[-1]]
     this_tensor = ops.Tensor(res_shape)
@@ -2425,7 +2432,6 @@ def matmul(a,
     return ops.Tensor(result_shape)   # it returns another Tensor
 
   this_operation = ops.our_Operation([a, b], ffnc=forward, name="matmul")   # create a new operation object each time
-  gph = ops.our_Graph.get_default_graph()
   gph.operations.append(this_operation)
   return this_operation
 

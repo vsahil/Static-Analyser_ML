@@ -1984,8 +1984,8 @@ def placeholder(dtype, shape=None, name=None):
   """
 
 
-  if context.executing_eagerly():
-    raise RuntimeError("tf.placeholder() is not compatible with eager execution.")
+  # if context.executing_eagerly():
+    # raise RuntimeError("tf.placeholder() is not compatible with eager execution.")
   # return
   this_placeholder = ops.Tensor(shape=shape, dtype=dtypes.as_dtype(dtype).base_dtype if dtype else dtype)
   gph = ops.our_Graph.get_default_graph()

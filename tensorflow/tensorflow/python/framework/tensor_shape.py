@@ -35,6 +35,8 @@ class Dimension(object):
       self._value = None
     elif isinstance(value, dtypes.DType):
       raise TypeError("Cannot convert %s to Dimension" % value)
+    elif isinstance(value, ops.our_Operation):
+      self._value = value
     else:
       self._value = int(value)
       if (not isinstance(value, compat.bytes_or_text_types) and

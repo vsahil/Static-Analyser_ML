@@ -196,7 +196,7 @@ def truncated_normal(shape,
   # print(shape, type(shape), "dekdei")
   
   if isinstance(shape, (list, tuple)):
-    this_tensor = ops.Tensor(list(shape), dtype)
+    this_tensor = ops.Tensor(list(shape))
     gph = ops.our_Graph.get_default_graph()
     gph.created_tensors.append(this_tensor)
     return this_tensor

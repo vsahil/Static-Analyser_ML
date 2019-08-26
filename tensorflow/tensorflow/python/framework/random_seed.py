@@ -176,6 +176,7 @@ def set_random_seed(seed):
   Args:
     seed: integer.
   """
+  return      # Do nothing
   if context.executing_eagerly():
     context.set_global_seed(seed)
   else:

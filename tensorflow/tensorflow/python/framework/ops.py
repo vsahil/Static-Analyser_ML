@@ -426,7 +426,7 @@ class Tensor(_TensorLike):
     # print(index, "HELLO SIR", any(isinstance(i, slice) for i in index))
     if isinstance(index, int):
       output_shape = self.shape[index]
-      if isinstance(output_shape, int):
+      if isinstance(output_shape, int) or output_shape == None:
         output_shape = [output_shape]
       assert(isinstance(output_shape, list))
       return Tensor(output_shape)
@@ -5704,6 +5704,7 @@ class our_Operation():
     
       # our_Graph.get_default_graph().operations.append(self)   # this is the reason for twice occurence, remove it
 
+    # @tf_contextlib.contextmanager
     def __add__(self, other, name=None):
       def forward(self, other):       # BROADCASTING IMPLEMENTED
         if isinstance(self, our_Operation):
@@ -5716,13 +5717,16 @@ class our_Operation():
           b = other.shape
         elif isinstance(other, (float, int)):
           return self   # no change as int is being added or subtracted, produced no change
-        
+        else:     # implicitly I am asking it to be tf.Variable
+          b = other.shape
+
         if b == "<unknown>":
           return Tensor(a)    # it will be the shape of a
         elif a == "<unknown>":
           return Tensor(b)  
         
         assert(isinstance(a, list) and isinstance(b, list))
+        # print(a, b, "THIS ONE")
         # replace None by 1 in shapes:
         a = [1 if x==None else x for x in a]
         b = [1 if x==None else x for x in b]
@@ -5737,8 +5741,10 @@ class our_Operation():
           assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
           output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
    
+        # print(output_shape, "see thsi")
         return Tensor(output_shape)   # no dtype
 
+      # print(other, self, "HELLO")
       this_operation = our_Operation([self, other], ffnc=forward, name=name if name else "__add__")   # can be used for __sub__, __rsub__   as code is same
       gph = our_Graph.get_default_graph()
       gph.operations.append(this_operation)
@@ -5801,6 +5807,20 @@ class our_Operation():
         else:
           raise NotImplementedError("self: {}, type(self):{}".format(self, type(self)))
       this_operation = our_Operation([self], ffnc=forward, name="__getitem__")   # create a new operation object each time
+      gph = our_Graph.get_default_graph()
+      gph.operations.append(this_operation)
+      return this_operation
+
+    def get_shape(self):
+      def forward(self):
+        if isinstance(self, our_Operation):
+          return self.fwd_func(*self.input_nodes)
+        # elif isinstance(self, list):
+          # return self[index]
+        else:
+          raise NotImplementedError("self: {}, type(self):{}".format(self, type(self)))
+      
+      this_operation = our_Operation([self], ffnc=forward, name="get_shape")   # create a new operation object each time
       gph = our_Graph.get_default_graph()
       gph.operations.append(this_operation)
       return this_operation
@@ -6080,8 +6100,6 @@ class our_Graph():
       yield
     finally:
       self._device_function_stack.pop()
-
-
 
 
 

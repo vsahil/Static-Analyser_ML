@@ -813,7 +813,7 @@ class BaseSession(SessionInterface):
 
       # start recursive depth-first search
       recursive_helper(operation)
-      print(ordering, "THIS IS ORDERING")
+      # print(ordering, "THIS IS ORDERING")
       return ordering
 
     # print(fetches, type(fetches), "WEGR")   # this can be a list of operation objects
@@ -982,7 +982,7 @@ class BaseSession(SessionInterface):
 
     options_ptr = tf_session.TF_NewBufferFromString(compat.as_bytes(options.SerializeToString())) if options else None
     run_metadata_ptr = tf_session.TF_NewBuffer() if run_metadata else None
-    assert(options_ptr == run_metadata_ptr == None), "Notimplemented"
+    # assert(options_ptr == run_metadata_ptr == None), "Notimplemented"
     
     if not fetches:   # If fetches is none, we return None
       return
@@ -1025,7 +1025,7 @@ class BaseSession(SessionInterface):
     if feed_dict:   # only if feed_dict is not None
       feed_dict_shape_confirm(feed_dict, feed_dict_shapes)    # This is for confirming is the shape of the feed_dict is conformable
     
-    print("FEED_DICT IS OKAY", feed_dict_shapes)    # I expect the feed_dict_shape to change as it is mutable object (passed by reference)
+    # print("FEED_DICT IS OKAY", feed_dict_shapes)    # I expect the feed_dict_shape to change as it is mutable object (passed by reference)
 
     result = []
     if isinstance(fetches, (list, tuple)):# and len(fetches) <= 2:   # onpy upto 2 
@@ -1035,14 +1035,14 @@ class BaseSession(SessionInterface):
     else:
       result.append(self.evaluate_fetches(fetches, feed_dict_shapes))
 
-    print("ALL IS WELL")
+    # print("ALL IS WELL")
     for r, j in enumerate(result):
       if isinstance(j, ops.Tensor):   # I don't expect operations till end of a natural program, unlike debugging trace
         # shp = j.shape
         # if len(shp) == 1:   # for github UT-1, which used the cost in addition, not much use for us
         #   result[r] = j.shape[0]
         # else:
-          result[r] = j.shape
+        result[r] = j.shape
       if isinstance(j, list) and len(list) == 1:
         result[r] = j[0]
     

@@ -732,10 +732,10 @@ class _VariableStore(object):
                          "Originally defined at:\n\n%s" % (
                              name, "".join(traceback.format_list(tb))))
       found_var = self._vars[name]
-      if not shape.is_compatible_with(found_var.get_shape()):
-        raise ValueError("Trying to share variable %s, but specified shape %s"
-                         " and found shape %s." % (name, shape,
-                                                   found_var.get_shape()))
+      # if not shape.is_compatible_with(found_var.get_shape()):
+      #   raise ValueError("Trying to share variable %s, but specified shape %s"
+      #                    " and found shape %s." % (name, shape,
+      #                                              found_var.get_shape()))
       # if not dtype.is_compatible_with(found_var.dtype):
       #   dtype_str = dtype.name
       #   found_type_str = found_var.dtype.name

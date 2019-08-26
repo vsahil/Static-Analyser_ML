@@ -1719,7 +1719,7 @@ def _softmax(logits, compute_op, dim=-1, name=None):
 
 
 @tf_export("nn.softmax")
-@deprecation.deprecated_args(None, "dim is deprecated, use axis instead", "dim")
+# @deprecation.deprecated_args(None, "dim is deprecated, use axis instead", "dim")
 def softmax(logits, axis=None, name=None, dim=None):
   """Computes softmax activations.
 
@@ -1759,7 +1759,7 @@ def softmax(logits, axis=None, name=None, dim=None):
 
 
 @tf_export("nn.log_softmax")
-@deprecation.deprecated_args(None, "dim is deprecated, use axis instead", "dim")
+# @deprecation.deprecated_args(None, "dim is deprecated, use axis instead", "dim")
 def log_softmax(logits, axis=None, name=None, dim=None):
   """Computes log softmax activations.
 
@@ -1920,7 +1920,7 @@ See @{tf.nn.softmax_cross_entropy_with_logits_v2}.
 
 
 @tf_export("nn.softmax_cross_entropy_with_logits")
-@deprecation.deprecated(date=None, instructions=_XENT_DEPRECATION)
+# @deprecation.deprecated(date=None, instructions=_XENT_DEPRECATION)
 def softmax_cross_entropy_with_logits(
     _sentinel=None,  # pylint: disable=invalid-name
     labels=None,
