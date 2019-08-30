@@ -91,19 +91,19 @@ class AdamOptimizer(optimizer.Optimizer):
         Defaults to "Adam".
     """
     super(AdamOptimizer, self).__init__(use_locking, name)
-    self._lr = learning_rate
-    self._beta1 = beta1
-    self._beta2 = beta2
-    self._epsilon = epsilon
+    # self._lr = learning_rate
+    # self._beta1 = beta1
+    # self._beta2 = beta2
+    # self._epsilon = epsilon
 
-    # Tensor versions of the constructor arguments, created in _prepare().
-    self._lr_t = None
-    self._beta1_t = None
-    self._beta2_t = None
-    self._epsilon_t = None
+    # # Tensor versions of the constructor arguments, created in _prepare().
+    # self._lr_t = None
+    # self._beta1_t = None
+    # self._beta2_t = None
+    # self._epsilon_t = None
 
-    # Created in SparseApply if needed.
-    self._updated_lr = None
+    # # Created in SparseApply if needed.
+    # self._updated_lr = None
 
   def _get_beta_accumulators(self):
     if context.executing_eagerly():

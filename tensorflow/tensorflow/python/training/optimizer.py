@@ -336,21 +336,21 @@ class Optimizer(
     """
     if not name:
       raise ValueError("Must specify the optimizer name")
-    self._use_locking = use_locking
-    self._name = name
-    # Dictionary of slots.
-    #  {slot_name :
-    #      {_var_key(variable_to_train): slot_for_the_variable, ... },
-    #   ... }
-    self._slots = {}
-    self._non_slot_dict = {}
-    # For implementing Checkpointable. Stores information about how to restore
-    # slot variables which have not yet been created
-    # (checkpointable._CheckpointPosition objects).
-    #  {slot_name :
-    #      {_var_key(variable_to_train): [checkpoint_position, ... ], ... },
-    #   ... }
-    self._deferred_slot_restorations = {}
+    # self._use_locking = use_locking
+    # self._name = name
+    # # Dictionary of slots.
+    # #  {slot_name :
+    # #      {_var_key(variable_to_train): slot_for_the_variable, ... },
+    # #   ... }
+    # self._slots = {}
+    # self._non_slot_dict = {}
+    # # For implementing Checkpointable. Stores information about how to restore
+    # # slot variables which have not yet been created
+    # # (checkpointable._CheckpointPosition objects).
+    # #  {slot_name :
+    # #      {_var_key(variable_to_train): [checkpoint_position, ... ], ... },
+    # #   ... }
+    # self._deferred_slot_restorations = {}
 
     # TODO(isaprykin): When using a DistributionStrategy, and when an
     # optimizer is created in each tower, it might be dangerous to
@@ -408,7 +408,7 @@ class Optimizer(
     @end_compatibility
     """
 
-    return 
+    return self
     grads_and_vars = self.compute_gradients(
         loss, var_list=var_list, gate_gradients=gate_gradients,
         aggregation_method=aggregation_method,
@@ -425,6 +425,9 @@ class Optimizer(
     return self.apply_gradients(grads_and_vars, global_step=global_step,
                                 name=name)
 
+  def run(self, *args, **kwargs):      # this is class I created, to do nothing, it can accept any number of arguments
+    pass
+  
   def compute_gradients(self, loss, var_list=None,
                         gate_gradients=GATE_OP,
                         aggregation_method=None,
