@@ -2,5 +2,6 @@ TensorFlow-Program-Bugs-maste*
 Static-Analyser_ML/
 __pycache__/
 bazel-0.10.0-installer-linux-x86_64.sh
-start.pyc
+*.pyc
 tf-1.8-edit/
+FSE_19_dataset
