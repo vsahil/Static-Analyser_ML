@@ -588,17 +588,17 @@ class BaseSession(SessionInterface):
         creating the TensorFlow session.
       TypeError: If one of the arguments has the wrong type.
     """
-    if graph is None:
-      self._graph = ops.get_default_graph()
-    else:
-      if not isinstance(graph, ops.Graph):
-        raise TypeError('graph must be a tf.Graph, but got %s' % type(graph))
-      self._graph = graph
+    # if graph is None:
+    #   self._graph = ops.get_default_graph()
+    # else:
+    #   if not isinstance(graph, ops.Graph):
+    #     raise TypeError('graph must be a tf.Graph, but got %s' % type(graph))
+    #   self._graph = graph
 
-    self._opened = False
-    self._closed = False
+    # self._opened = False
+    # self._closed = False
 
-    self._current_version = 0
+    # self._current_version = 0
     # self._extend_lock = threading.Lock()
     # if target is not None:
     #   try:
@@ -627,7 +627,7 @@ class BaseSession(SessionInterface):
     # self._created_with_new_api = ops._USE_C_API
     # # pylint: enable=protected-access
 
-    self._session = None
+    # self._session = None
     # opts = tf_session.TF_NewSessionOptions(target=self._target, config=config)
     # try:
     #   if self._created_with_new_api:
@@ -662,6 +662,7 @@ class BaseSession(SessionInterface):
     Returns:
       A list of devices in the session.
     """
+    return
     if self._created_with_new_api:
       raw_device_list = tf_session.TF_SessionListDevices(self._session)
     else:
@@ -686,6 +687,7 @@ class BaseSession(SessionInterface):
       tf.errors.OpError: Or one of its subclasses if an error occurs while
         closing the TensorFlow session.
     """
+    return
     if self._created_with_new_api:
       if self._session and not self._closed:
         self._closed = True
@@ -699,6 +701,7 @@ class BaseSession(SessionInterface):
 
   def __del__(self):
     # cleanly ignore all exceptions
+    return
     try:
       self.close()
     except Exception:  # pylint: disable=broad-except
@@ -719,6 +722,7 @@ class BaseSession(SessionInterface):
   @property
   def graph(self):
     """The graph that was launched in this session."""
+    return
     return self._graph
 
   @property
@@ -788,6 +792,7 @@ class BaseSession(SessionInterface):
     Returns:
       A context manager using this session as the default session.
     """
+    return
     return ops.default_session(self)
 
 
@@ -869,6 +874,8 @@ class BaseSession(SessionInterface):
           node.output = node    # lets see if this works for outputs
       elif not node:    # If it is None object like "optimizer"
         return None
+      elif "Optimizer" in str(type(node)) or "optimizer" in str(type(node)):    # not running optimizer elements
+        return None
       else:
         raise NotImplementedError("This is the type:{}".format(type(node)))
 
@@ -876,118 +883,15 @@ class BaseSession(SessionInterface):
 
 
   def run(self, fetches, feed_dict=None, options=None, run_metadata=None):
-    """Runs operations and evaluates tensors in `fetches`.
+    # Runs operations and evaluates tensors in `fetches`
 
-    This method runs one "step" of TensorFlow computation, by
-    running the necessary graph fragment to execute every `Operation`
-    and evaluate every `Tensor` in `fetches`, substituting the values in
-    `feed_dict` for the corresponding input values.
-
-    The `fetches` argument may be a single graph element, or an arbitrarily
-    nested list, tuple, namedtuple, dict, or OrderedDict containing graph
-    elements at its leaves.  A graph element can be one of the following types:
-
-    * An @{tf.Operation}.
-      The corresponding fetched value will be `None`.
-    * A @{tf.Tensor}.
-      The corresponding fetched value will be a numpy ndarray containing the
-      value of that tensor.
-    * A @{tf.SparseTensor}.
-      The corresponding fetched value will be a
-      @{tf.SparseTensorValue}
-      containing the value of that sparse tensor.
-    * A `get_tensor_handle` op.  The corresponding fetched value will be a
-      numpy ndarray containing the handle of that tensor.
-    * A `string` which is the name of a tensor or operation in the graph.
-
-    The value returned by `run()` has the same shape as the `fetches` argument,
-    where the leaves are replaced by the corresponding values returned by
-    TensorFlow.
-
-    Example:
-
-    ```python
-       a = tf.constant([10, 20])
-       b = tf.constant([1.0, 2.0])
-       # 'fetches' can be a singleton
-       v = session.run(a)
-       # v is the numpy array [10, 20]
-       # 'fetches' can be a list.
-       v = session.run([a, b])
-       # v is a Python list with 2 numpy arrays: the 1-D array [10, 20] and the
-       # 1-D array [1.0, 2.0]
-       # 'fetches' can be arbitrary lists, tuples, namedtuple, dicts:
-       MyData = collections.namedtuple('MyData', ['a', 'b'])
-       v = session.run({'k1': MyData(a, b), 'k2': [b, a]})
-       # v is a dict with
-       # v['k1'] is a MyData namedtuple with 'a' (the numpy array [10, 20]) and
-       # 'b' (the numpy array [1.0, 2.0])
-       # v['k2'] is a list with the numpy array [1.0, 2.0] and the numpy array
-       # [10, 20].
-    ```
-
-    The optional `feed_dict` argument allows the caller to override
-    the value of tensors in the graph. Each key in `feed_dict` can be
-    one of the following types:
-
-    * If the key is a @{tf.Tensor}, the
-      value may be a Python scalar, string, list, or numpy ndarray
-      that can be converted to the same `dtype` as that
-      tensor. Additionally, if the key is a
-      @{tf.placeholder}, the shape of
-      the value will be checked for compatibility with the placeholder.
-    * If the key is a
-      @{tf.SparseTensor},
-      the value should be a
-      @{tf.SparseTensorValue}.
-    * If the key is a nested tuple of `Tensor`s or `SparseTensor`s, the value
-      should be a nested tuple with the same structure that maps to their
-      corresponding values as above.
-
-    Each value in `feed_dict` must be convertible to a numpy array of the dtype
-    of the corresponding key.
-
-    The optional `options` argument expects a [`RunOptions`] proto. The options
-    allow controlling the behavior of this particular step (e.g. turning tracing
-    on).
-
-    The optional `run_metadata` argument expects a [`RunMetadata`] proto. When
-    appropriate, the non-Tensor output of this step will be collected there. For
-    example, when users turn on tracing in `options`, the profiled info will be
-    collected into this argument and passed back.
-
-    Args:
-      fetches: A single graph element, a list of graph elements,
-        or a dictionary whose values are graph elements or lists of graph
-        elements (described above).
-      feed_dict: A dictionary that maps graph elements to values
-        (described above).
-      options: A [`RunOptions`] protocol buffer
-      run_metadata: A [`RunMetadata`] protocol buffer
-
-    Returns:
-      Either a single value if `fetches` is a single graph element, or
-      a list of values if `fetches` is a list, or a dictionary with the
-      same keys as `fetches` if that is a dictionary (described above).
-      Order in which `fetches` operations are evaluated inside the call
-      is undefined.
-
-    Raises:
-      RuntimeError: If this `Session` is in an invalid state (e.g. has been
-        closed).
-      TypeError: If `fetches` or `feed_dict` keys are of an inappropriate type.
-      ValueError: If `fetches` or `feed_dict` keys are invalid or refer to a
-        `Tensor` that doesn't exist.
-    """
-
-    options_ptr = tf_session.TF_NewBufferFromString(compat.as_bytes(options.SerializeToString())) if options else None
-    run_metadata_ptr = tf_session.TF_NewBuffer() if run_metadata else None
+    # options_ptr = tf_session.TF_NewBufferFromString(compat.as_bytes(options.SerializeToString())) if options else None
+    # run_metadata_ptr = tf_session.TF_NewBuffer() if run_metadata else None
     # assert(options_ptr == run_metadata_ptr == None), "Notimplemented"
-    
+    import time
     if not fetches:   # If fetches is none, we return None
       return
-
-    
+ 
     def feed_dict_shape_confirm(feed, feed_dict_shapes):
       for key, value in feed.items():
         if isinstance(key, ops.Tensor):
@@ -1013,7 +917,11 @@ class BaseSession(SessionInterface):
           raise NotImplementedError("This is the type of value:{}".format(type(value)))
         
         if shape_key:   # if shape of placeholder is None, then it can take any shape
+          # try:
           assert(len(shape_key) == len(shape_value)), "Shape of %s can't fit in %s"%(shape_value, shape_key)
+          # except:
+          #   print(time.time(), "SEE ME")
+          #   exit(0)
           for i,j in zip(shape_key, shape_value):
             if i != j and i:    # if `i` is None it can take nay value
               raise ValueError("Shape of %s can't fit in %s"%(shape_value, shape_key))
@@ -1036,19 +944,15 @@ class BaseSession(SessionInterface):
       result.append(self.evaluate_fetches(fetches, feed_dict_shapes))
 
     # print("ALL IS WELL")
-    for r, j in enumerate(result):
-      if isinstance(j, ops.Tensor):   # I don't expect operations till end of a natural program, unlike debugging trace
-        # shp = j.shape
-        # if len(shp) == 1:   # for github UT-1, which used the cost in addition, not much use for us
-        #   result[r] = j.shape[0]
-        # else:
-        result[r] = j.shape
-      if isinstance(j, list) and len(list) == 1:
-        result[r] = j[0]
+    # for r, j in enumerate(result):
+    #   if isinstance(j, ops.Tensor):   # I don't expect operations till end of a natural program, unlike debugging trace
+    #     result[r] = j.shape
+    #   if isinstance(j, list) and len(list) == 1:
+    #     result[r] = j[0]
     
-    if not isinstance(fetches, (list, tuple)):
-      assert(len(result)==1)
-      result = result[0]
+    # if not isinstance(fetches, (list, tuple)):
+    #   assert(len(result)==1)
+    #   result = result[0]
 
     # print(result, "SEE HTIS")
     return result
@@ -1717,23 +1621,24 @@ class Session(BaseSession):
     """
     super(Session, self).__init__(target, graph, config=config)
     # NOTE(mrry): Create these on first `__enter__` to avoid a reference cycle.
-    self._default_graph_context_manager = None
-    self._default_session_context_manager = None
+    # self._default_graph_context_manager = None
+    # self._default_session_context_manager = None
 
   def __enter__(self):
-    if self._default_graph_context_manager is None:
-      self._default_graph_context_manager = self.graph.as_default()
-    else:
-      raise RuntimeError('Session context managers are not re-entrant. '
-                         'Use `Session.as_default()` if you want to enter '
-                         'a session multiple times.')
-    if self._default_session_context_manager is None:
-      self._default_session_context_manager = self.as_default()
-    self._default_graph_context_manager.__enter__()
-    # return    # nothing
-    return self._default_session_context_manager.__enter__()
+    return self
+    # if self._default_graph_context_manager is None:
+    #   self._default_graph_context_manager = self.graph.as_default()
+    # else:
+    #   raise RuntimeError('Session context managers are not re-entrant. '
+    #                      'Use `Session.as_default()` if you want to enter '
+    #                      'a session multiple times.')
+    # if self._default_session_context_manager is None:
+    #   self._default_session_context_manager = self.as_default()
+    # self._default_graph_context_manager.__enter__()
+    # return self._default_session_context_manager.__enter__()
 
   def __exit__(self, exec_type, exec_value, exec_tb):
+    return
     if exec_type is errors.OpError:
       logging.error('Session closing due to OpError: %s', (exec_value,))
     try:

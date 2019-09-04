@@ -1491,7 +1491,7 @@ def global_variables(scope=None):
 
 
 @tf_export("all_variables")
-@deprecated("2017-03-02", "Please use tf.global_variables instead.")
+# @deprecated("2017-03-02", "Please use tf.global_variables instead.")
 def all_variables():
   """See `tf.global_variables`."""
   return global_variables()
@@ -1625,16 +1625,18 @@ def variables_initializer(var_list, name="init"):
   Returns:
     An Op that run the initializers of all the specified variables.
   """
+  return
   if var_list and not context.executing_eagerly():
     return control_flow_ops.group(*[v.initializer for v in var_list], name=name)
   return control_flow_ops.no_op(name=name)
 
 
 @tf_export("initialize_variables")
-@tf_should_use.should_use_result
-@deprecated("2017-03-02", "Use `tf.variables_initializer` instead.")
+# @tf_should_use.should_use_result
+# @deprecated("2017-03-02", "Use `tf.variables_initializer` instead.")
 def initialize_variables(var_list, name="init"):
   """See `tf.variables_initializer`."""
+  return
   return variables_initializer(var_list, name=name)
 
 
@@ -1647,18 +1649,19 @@ def global_variables_initializer():
   Returns:
     An Op that initializes global variables in the graph.
   """
-  return      # do a none here
+  return
   if context.executing_eagerly():
     return control_flow_ops.no_op(name="global_variables_initializer")
   return variables_initializer(global_variables())
 
 
 @tf_export("initialize_all_variables")
-@tf_should_use.should_use_result
-@deprecated("2017-03-02", "Use `tf.global_variables_initializer` instead.")
+# @tf_should_use.should_use_result
+# @deprecated("2017-03-02", "Use `tf.global_variables_initializer` instead.")
 def initialize_all_variables():
   """See `tf.global_variables_initializer`."""
-  return global_variables_initializer()
+  return
+  # return global_variables_initializer()
 
 
 @tf_export("initializers.local_variables", "local_variables_initializer")
@@ -1670,21 +1673,23 @@ def local_variables_initializer():
   Returns:
     An Op that initializes all local variables in the graph.
   """
+  return
   if context.executing_eagerly():
     return control_flow_ops.no_op(name="local_variables_initializer")
   return variables_initializer(local_variables())
 
 
 @tf_export("initialize_local_variables")
-@tf_should_use.should_use_result
-@deprecated("2017-03-02", "Use `tf.local_variables_initializer` instead.")
+# @tf_should_use.should_use_result
+# @deprecated("2017-03-02", "Use `tf.local_variables_initializer` instead.")
 def initialize_local_variables():
   """See `tf.local_variables_initializer`."""
+  return
   return local_variables_initializer()
 
 
 @tf_export("is_variable_initialized")
-@tf_should_use.should_use_result
+# @tf_should_use.should_use_result
 def is_variable_initialized(variable):
   """Tests if a variable has been initialized.
 
@@ -1742,7 +1747,7 @@ def assert_variables_initialized(var_list=None):
 
 
 @tf_export("report_uninitialized_variables")
-@tf_should_use.should_use_result
+# @tf_should_use.should_use_result
 def report_uninitialized_variables(var_list=None,
                                    name="report_uninitialized_variables"):
   """Adds ops to list the names of uninitialized variables.
