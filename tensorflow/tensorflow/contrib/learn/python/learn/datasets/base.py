@@ -42,7 +42,7 @@ Dataset = collections.namedtuple('Dataset', ['data', 'target'])
 Datasets = collections.namedtuple('Datasets', ['train', 'validation', 'test'])
 
 
-@deprecated(None, 'Use tf.data instead.')
+# @deprecated(None, 'Use tf.data instead.')
 def load_csv_with_header(filename,
                          target_dtype,
                          features_dtype,
@@ -62,7 +62,7 @@ def load_csv_with_header(filename,
   return Dataset(data=data, target=target)
 
 
-@deprecated(None, 'Use tf.data instead.')
+# @deprecated(None, 'Use tf.data instead.')
 def load_csv_without_header(filename,
                             target_dtype,
                             features_dtype,
@@ -80,7 +80,7 @@ def load_csv_without_header(filename,
   return Dataset(data=data, target=target)
 
 
-@deprecated(None, 'Use tf.data instead.')
+# @deprecated(None, 'Use tf.data instead.')
 def shrink_csv(filename, ratio):
   """Create a smaller dataset of only 1/ratio of original data."""
   filename_small = filename.replace('.', '_small.')
@@ -95,7 +95,7 @@ def shrink_csv(filename, ratio):
         i += 1
 
 
-@deprecated(None, 'Use scikits.learn.datasets.')
+# @deprecated(None, 'Use scikits.learn.datasets.')
 def load_iris(data_path=None):
   """Load Iris dataset.
 
@@ -112,7 +112,7 @@ def load_iris(data_path=None):
       data_path, target_dtype=np.int, features_dtype=np.float)
 
 
-@deprecated(None, 'Use scikits.learn.datasets.')
+# @deprecated(None, 'Use scikits.learn.datasets.')
 def load_boston(data_path=None):
   """Load Boston housing dataset.
 
@@ -129,7 +129,7 @@ def load_boston(data_path=None):
       data_path, target_dtype=np.float, features_dtype=np.float)
 
 
-@deprecated(None, 'Use the retry module or similar alternatives.')
+# @deprecated(None, 'Use the retry module or similar alternatives.')
 def retry(initial_delay,
           max_delay,
           factor=2.0,
@@ -227,13 +227,13 @@ def _is_retriable(e):
   return isinstance(e, IOError) and e.errno in _RETRIABLE_ERRNOS
 
 
-@deprecated(None, 'Please use urllib or similar directly.')
+# @deprecated(None, 'Please use urllib or similar directly.')
 @_internal_retry(initial_delay=1.0, max_delay=16.0, is_retriable=_is_retriable)
 def urlretrieve_with_retry(url, filename=None):
   return urllib.request.urlretrieve(url, filename)
 
 
-@deprecated(None, 'Please write your own downloading logic.')
+# @deprecated(None, 'Please write your own downloading logic.')
 def maybe_download(filename, work_directory, source_url):
   """Download the data from source url, unless it's already here.
 

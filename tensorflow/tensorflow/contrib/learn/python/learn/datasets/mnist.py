@@ -57,13 +57,14 @@ def extract_images(f):
     ValueError: If the bytestream does not start with 2051.
 
   """
-  print('Extracting', f.name)
+  # print('Extracting', f.name)
   with gzip.GzipFile(fileobj=f) as bytestream:
     magic = _read32(bytestream)
     if magic != 2051:
       raise ValueError('Invalid magic number %d in MNIST image file: %s' %
                        (magic, f.name))
     num_images = _read32(bytestream)
+    num_images = 2      # I added this, not equal to 1 to show broadcasting issues
     rows = _read32(bytestream)
     cols = _read32(bytestream)
     buf = bytestream.read(rows * cols * num_images)
@@ -98,18 +99,16 @@ def extract_labels(f, one_hot=False, num_classes=10):
   Raises:
     ValueError: If the bystream doesn't start with 2049.
   """
-  count = 0
-  print('Extracting', f.name)
+  # print('Extracting', f.name)
   with gzip.GzipFile(fileobj=f) as bytestream:
     magic = _read32(bytestream)
     if magic != 2049:
       raise ValueError('Invalid magic number %d in MNIST label file: %s' %
                        (magic, f.name))
     num_items = _read32(bytestream)
+    num_items = 2     ## I added this, not equal to 1 to show broadcasting issues
     buf = bytestream.read(num_items)
     labels = numpy.frombuffer(buf, dtype=numpy.uint8)
-    count += 1
-    print("This is count", count)
     if one_hot:
       return dense_to_one_hot(labels, num_classes)
     return labels
@@ -238,9 +237,9 @@ def read_data_sets(train_dir,
                    one_hot=False,
                    dtype=dtypes.float32,
                    reshape=True,
-                   validation_size=5000,
+                   validation_size=0,
                    seed=None,
-                   source_url=DEFAULT_SOURCE_URL):
+                   source_url=DEFAULT_SOURCE_URL):    # validation change from 5000 to 0
   if fake_data:
 
     def fake():
