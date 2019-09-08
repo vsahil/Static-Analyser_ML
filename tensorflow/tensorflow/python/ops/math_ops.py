@@ -203,11 +203,8 @@ def _set_doc(doc):
 
 # pylint: disable=redefined-builtin
 @tf_export("argmax")
-@deprecation.deprecated_args(None, "Use the `axis` argument instead",
-                             "dimension")
-@_set_doc(
-    gen_math_ops.arg_max.__doc__.replace("dimensions", "axes").replace(
-        "dimension", "axis"))
+# @deprecation.deprecated_args(None, "Use the `axis` argument instead","dimension")
+# @_set_doc(gen_math_ops.arg_max.__doc__.replace("dimensions", "axes").replace("dimension", "axis"))
 def argmax(input,
            axis=None,
            name=None,
@@ -244,11 +241,9 @@ def argmax(input,
 
 
 @tf_export("argmin")
-@deprecation.deprecated_args(None, "Use the `axis` argument instead",
-                             "dimension")
-@_set_doc(
-    gen_math_ops.arg_min.__doc__.replace("dimensions", "axes").replace(
-        "dimension", "axis"))
+# @deprecation.deprecated_args(None, "Use the `axis` argument instead","dimension")
+# @_set_doc(
+    # gen_math_ops.arg_min.__doc__.replace("dimensions", "axes").replace("dimension", "axis"))
 def argmin(input,
            axis=None,
            name=None,
@@ -1528,8 +1523,7 @@ def _may_reduce_to_scalar(keepdims, axis, reduction_indices, output):
 
 
 @tf_export("reduce_sum")
-@deprecation.deprecated_args(
-    None, "keep_dims is deprecated, use keepdims instead", "keep_dims")
+# @deprecation.deprecated_args(None, "keep_dims is deprecated, use keepdims instead", "keep_dims")
 def reduce_sum(input_tensor,
                axis=None,
                keepdims=None,
@@ -1720,8 +1714,8 @@ def count_nonzero(input_tensor,
 
 
 @tf_export("reduce_mean")
-@deprecation.deprecated_args(
-    None, "keep_dims is deprecated, use keepdims instead", "keep_dims")
+# @deprecation.deprecated_args(
+#     None, "keep_dims is deprecated, use keepdims instead", "keep_dims")
 def reduce_mean(input_tensor,
                 axis=None,
                 keepdims=None,
@@ -1926,8 +1920,8 @@ def reduce_min(input_tensor,
 
 
 @tf_export("reduce_max")
-@deprecation.deprecated_args(
-    None, "keep_dims is deprecated, use keepdims instead", "keep_dims")
+# @deprecation.deprecated_args(
+    # None, "keep_dims is deprecated, use keepdims instead", "keep_dims")
 def reduce_max(input_tensor,
                axis=None,
                keepdims=None,
@@ -3291,122 +3285,137 @@ def tensordot(a, b, axes, name=None):
       tensor.
   """
 
-  def _tensordot_reshape(a, axes, flipped=False):
-    """Helper method to perform transpose and reshape for contraction op.
+  assert(len(axes[0]) == len(axes[1])), "The lists `a_axes` and `b_axes` must have identical length"
+  if not (isinstance(a, variables.Variable) and isinstance(b, variables.Variable)):
+    raise NotImplementedError("Only implemented for variables")
+  shape1 = a.shape
+  shape2 = b.shape
+  for r in range(len(axes[0])):
+    assert(shape1[axes[0][r]] == shape2[axes[1][r]]), "The axis `a_axes[i]` of `a` must have the same dimension as axis `b_axes[i]` of `b` for all `i` in `range(0, len(a_axes))`"
+  new_shape1 = [j for i, j in enumerate(shape1) if i not in axes[0]]
+  new_shape2 = [j for i, j in enumerate(shape2) if i not in axes[1]]
+  new_shape1.extend(new_shape2)
+  this_tensor = ops.Tensor(new_shape1)
+  gph = ops.our_Graph.get_default_graph()
+  gph.created_tensors.append(this_tensor)
+  return this_tensor
 
-    This method is helpful in reducing `math_ops.tensordot` to `math_ops.matmul`
-    using `array_ops.transpose` and `array_ops.reshape`. The method takes a
-    tensor and performs the correct transpose and reshape operation for a given
-    set of indices. It returns the reshaped tensor as well as a list of indices
-    necessary to reshape the tensor again after matrix multiplication.
+  # def _tensordot_reshape(a, axes, flipped=False):
+  #   """Helper method to perform transpose and reshape for contraction op.
 
-    Args:
-      a: `Tensor`.
-      axes: List or `int32` `Tensor` of unique indices specifying valid axes of
-       `a`.
-      flipped: An optional `bool`. Defaults to `False`. If `True`, the method
-        assumes that `a` is the second argument in the contraction operation.
+  #   This method is helpful in reducing `math_ops.tensordot` to `math_ops.matmul`
+  #   using `array_ops.transpose` and `array_ops.reshape`. The method takes a
+  #   tensor and performs the correct transpose and reshape operation for a given
+  #   set of indices. It returns the reshaped tensor as well as a list of indices
+  #   necessary to reshape the tensor again after matrix multiplication.
 
-    Returns:
-      A tuple `(reshaped_a, free_dims, free_dims_static)` where `reshaped_a` is
-      the tensor `a` reshaped to allow contraction via `matmul`, `free_dims` is
-      either a list of integers or an `int32` `Tensor`, depending on whether
-      the shape of a is fully specified, and free_dims_static is either a list
-      of integers and None values, or None, representing the inferred
-      static shape of the free dimensions
-    """
-    if a.get_shape().is_fully_defined() and isinstance(axes, (list, tuple)):
-      shape_a = a.get_shape().as_list()
-      axes = [i if i >= 0 else i + len(shape_a) for i in axes]
-      free = [i for i in xrange(len(shape_a)) if i not in axes]
-      free_dims = [shape_a[i] for i in free]
-      prod_free = int(np.prod([shape_a[i] for i in free]))
-      prod_axes = int(np.prod([shape_a[i] for i in axes]))
-      perm = list(axes) + free if flipped else free + list(axes)
-      new_shape = [prod_axes, prod_free] if flipped else [prod_free, prod_axes]
-      reshaped_a = array_ops.reshape(array_ops.transpose(a, perm), new_shape)
-      return reshaped_a, free_dims, free_dims
-    else:
-      if a.get_shape().ndims is not None and isinstance(axes, (list, tuple)):
-        shape_a = a.get_shape().as_list()
-        axes = [i if i >= 0 else i + len(shape_a) for i in axes]
-        free = [i for i in xrange(len(shape_a)) if i not in axes]
-        free_dims_static = [shape_a[i] for i in free]
-      else:
-        free_dims_static = None
-      shape_a = array_ops.shape(a)
-      rank_a = array_ops.rank(a)
-      axes = ops.convert_to_tensor(axes, dtype=dtypes.int32, name="axes")
-      axes = cast(axes >= 0, dtypes.int32) * axes + cast(
-          axes < 0, dtypes.int32) * (
-              axes + rank_a)
-      free, _ = array_ops.setdiff1d(range(rank_a), axes)
-      free_dims = array_ops.gather(shape_a, free)
-      axes_dims = array_ops.gather(shape_a, axes)
-      prod_free_dims = reduce_prod(free_dims)
-      prod_axes_dims = reduce_prod(axes_dims)
-      perm = array_ops.concat([axes_dims, free_dims], 0)
-      if flipped:
-        perm = array_ops.concat([axes, free], 0)
-        new_shape = array_ops.stack([prod_axes_dims, prod_free_dims])
-      else:
-        perm = array_ops.concat([free, axes], 0)
-        new_shape = array_ops.stack([prod_free_dims, prod_axes_dims])
-      reshaped_a = array_ops.reshape(array_ops.transpose(a, perm), new_shape)
-      return reshaped_a, free_dims, free_dims_static
+  #   Args:
+  #     a: `Tensor`.
+  #     axes: List or `int32` `Tensor` of unique indices specifying valid axes of
+  #      `a`.
+  #     flipped: An optional `bool`. Defaults to `False`. If `True`, the method
+  #       assumes that `a` is the second argument in the contraction operation.
 
-  def _tensordot_axes(a, axes):
-    """Generates two sets of contraction axes for the two tensor arguments."""
-    a_shape = a.get_shape()
-    if isinstance(axes, compat.integral_types):
-      if axes < 0:
-        raise ValueError("'axes' must be at least 0.")
-      if a_shape.ndims is not None:
-        if axes > a_shape.ndims:
-          raise ValueError("'axes' must not be larger than the number of "
-                           "dimensions of tensor %s." % a)
-        return (list(xrange(a_shape.ndims - axes, a_shape.ndims)),
-                list(xrange(axes)))
-      else:
-        rank = array_ops.rank(a)
-        return (range(rank - axes, rank, dtype=dtypes.int32),
-                range(axes, dtype=dtypes.int32))
-    elif isinstance(axes, (list, tuple)):
-      if len(axes) != 2:
-        raise ValueError("'axes' must be an integer or have length 2.")
-      a_axes = axes[0]
-      b_axes = axes[1]
-      if isinstance(a_axes, compat.integral_types) and \
-          isinstance(b_axes, compat.integral_types):
-        a_axes = [a_axes]
-        b_axes = [b_axes]
-      if len(a_axes) != len(b_axes):
-        raise ValueError(
-            "Different number of contraction axes 'a' and 'b', %s != %s." %
-            (len(a_axes), len(b_axes)))
-      return a_axes, b_axes
-    else:
-      axes = ops.convert_to_tensor(axes, name="axes", dtype=dtypes.int32)
-      return axes[0], axes[1]
+  #   Returns:
+  #     A tuple `(reshaped_a, free_dims, free_dims_static)` where `reshaped_a` is
+  #     the tensor `a` reshaped to allow contraction via `matmul`, `free_dims` is
+  #     either a list of integers or an `int32` `Tensor`, depending on whether
+  #     the shape of a is fully specified, and free_dims_static is either a list
+  #     of integers and None values, or None, representing the inferred
+  #     static shape of the free dimensions
+  #   """
+  #   if a.get_shape().is_fully_defined() and isinstance(axes, (list, tuple)):
+  #     shape_a = a.get_shape().as_list()
+  #     axes = [i if i >= 0 else i + len(shape_a) for i in axes]
+  #     free = [i for i in xrange(len(shape_a)) if i not in axes]
+  #     free_dims = [shape_a[i] for i in free]
+  #     prod_free = int(np.prod([shape_a[i] for i in free]))
+  #     prod_axes = int(np.prod([shape_a[i] for i in axes]))
+  #     perm = list(axes) + free if flipped else free + list(axes)
+  #     new_shape = [prod_axes, prod_free] if flipped else [prod_free, prod_axes]
+  #     reshaped_a = array_ops.reshape(array_ops.transpose(a, perm), new_shape)
+  #     return reshaped_a, free_dims, free_dims
+  #   else:
+  #     if a.get_shape().ndims is not None and isinstance(axes, (list, tuple)):
+  #       shape_a = a.get_shape().as_list()
+  #       axes = [i if i >= 0 else i + len(shape_a) for i in axes]
+  #       free = [i for i in xrange(len(shape_a)) if i not in axes]
+  #       free_dims_static = [shape_a[i] for i in free]
+  #     else:
+  #       free_dims_static = None
+  #     shape_a = array_ops.shape(a)
+  #     rank_a = array_ops.rank(a)
+  #     axes = ops.convert_to_tensor(axes, dtype=dtypes.int32, name="axes")
+  #     axes = cast(axes >= 0, dtypes.int32) * axes + cast(
+  #         axes < 0, dtypes.int32) * (
+  #             axes + rank_a)
+  #     free, _ = array_ops.setdiff1d(range(rank_a), axes)
+  #     free_dims = array_ops.gather(shape_a, free)
+  #     axes_dims = array_ops.gather(shape_a, axes)
+  #     prod_free_dims = reduce_prod(free_dims)
+  #     prod_axes_dims = reduce_prod(axes_dims)
+  #     perm = array_ops.concat([axes_dims, free_dims], 0)
+  #     if flipped:
+  #       perm = array_ops.concat([axes, free], 0)
+  #       new_shape = array_ops.stack([prod_axes_dims, prod_free_dims])
+  #     else:
+  #       perm = array_ops.concat([free, axes], 0)
+  #       new_shape = array_ops.stack([prod_free_dims, prod_axes_dims])
+  #     reshaped_a = array_ops.reshape(array_ops.transpose(a, perm), new_shape)
+  #     return reshaped_a, free_dims, free_dims_static
 
-  with ops.name_scope(name, "Tensordot", [a, b, axes]) as name:
-    a = ops.convert_to_tensor(a, name="a")
-    b = ops.convert_to_tensor(b, name="b")
-    a_axes, b_axes = _tensordot_axes(a, axes)
-    a_reshape, a_free_dims, a_free_dims_static = _tensordot_reshape(a, a_axes)
-    b_reshape, b_free_dims, b_free_dims_static = _tensordot_reshape(
-        b, b_axes, True)
-    ab_matmul = matmul(a_reshape, b_reshape)
-    if isinstance(a_free_dims, list) and isinstance(b_free_dims, list):
-      return array_ops.reshape(ab_matmul, a_free_dims + b_free_dims, name=name)
-    else:
-      a_free_dims = ops.convert_to_tensor(a_free_dims, dtype=dtypes.int32)
-      b_free_dims = ops.convert_to_tensor(b_free_dims, dtype=dtypes.int32)
-      product = array_ops.reshape(
-          ab_matmul, array_ops.concat([a_free_dims, b_free_dims], 0), name=name)
-      if a_free_dims_static is not None and b_free_dims_static is not None:
-        product.set_shape(a_free_dims_static + b_free_dims_static)
-      return product
+  # def _tensordot_axes(a, axes):
+  #   """Generates two sets of contraction axes for the two tensor arguments."""
+  #   a_shape = a.get_shape()
+  #   if isinstance(axes, compat.integral_types):
+  #     if axes < 0:
+  #       raise ValueError("'axes' must be at least 0.")
+  #     if a_shape.ndims is not None:
+  #       if axes > a_shape.ndims:
+  #         raise ValueError("'axes' must not be larger than the number of "
+  #                          "dimensions of tensor %s." % a)
+  #       return (list(xrange(a_shape.ndims - axes, a_shape.ndims)),
+  #               list(xrange(axes)))
+  #     else:
+  #       rank = array_ops.rank(a)
+  #       return (range(rank - axes, rank, dtype=dtypes.int32),
+  #               range(axes, dtype=dtypes.int32))
+  #   elif isinstance(axes, (list, tuple)):
+  #     if len(axes) != 2:
+  #       raise ValueError("'axes' must be an integer or have length 2.")
+  #     a_axes = axes[0]
+  #     b_axes = axes[1]
+  #     if isinstance(a_axes, compat.integral_types) and \
+  #         isinstance(b_axes, compat.integral_types):
+  #       a_axes = [a_axes]
+  #       b_axes = [b_axes]
+  #     if len(a_axes) != len(b_axes):
+  #       raise ValueError(
+  #           "Different number of contraction axes 'a' and 'b', %s != %s." %
+  #           (len(a_axes), len(b_axes)))
+  #     return a_axes, b_axes
+  #   else:
+  #     axes = ops.convert_to_tensor(axes, name="axes", dtype=dtypes.int32)
+  #     return axes[0], axes[1]
+
+  # with ops.name_scope(name, "Tensordot", [a, b, axes]) as name:
+  #   a = ops.convert_to_tensor(a, name="a")
+  #   b = ops.convert_to_tensor(b, name="b")
+  #   a_axes, b_axes = _tensordot_axes(a, axes)
+  #   a_reshape, a_free_dims, a_free_dims_static = _tensordot_reshape(a, a_axes)
+  #   b_reshape, b_free_dims, b_free_dims_static = _tensordot_reshape(
+  #       b, b_axes, True)
+  #   ab_matmul = matmul(a_reshape, b_reshape)
+  #   if isinstance(a_free_dims, list) and isinstance(b_free_dims, list):
+  #     return array_ops.reshape(ab_matmul, a_free_dims + b_free_dims, name=name)
+  #   else:
+  #     a_free_dims = ops.convert_to_tensor(a_free_dims, dtype=dtypes.int32)
+  #     b_free_dims = ops.convert_to_tensor(b_free_dims, dtype=dtypes.int32)
+  #     product = array_ops.reshape(
+  #         ab_matmul, array_ops.concat([a_free_dims, b_free_dims], 0), name=name)
+  #     if a_free_dims_static is not None and b_free_dims_static is not None:
+  #       product.set_shape(a_free_dims_static + b_free_dims_static)
+  #     return product
 
 
 @tf_export("math.polyval")

@@ -588,17 +588,17 @@ class BaseSession(SessionInterface):
         creating the TensorFlow session.
       TypeError: If one of the arguments has the wrong type.
     """
-    # if graph is None:
-    #   self._graph = ops.get_default_graph()
-    # else:
-    #   if not isinstance(graph, ops.Graph):
-    #     raise TypeError('graph must be a tf.Graph, but got %s' % type(graph))
-    #   self._graph = graph
+    if graph is None:
+      self._graph = ops.get_default_graph()
+    else:
+      if not isinstance(graph, ops.Graph):
+        raise TypeError('graph must be a tf.Graph, but got %s' % type(graph))
+      self._graph = graph
 
-    # self._opened = False
-    # self._closed = False
+    self._opened = False
+    self._closed = False
 
-    # self._current_version = 0
+    self._current_version = 0
     # self._extend_lock = threading.Lock()
     # if target is not None:
     #   try:
@@ -627,7 +627,7 @@ class BaseSession(SessionInterface):
     # self._created_with_new_api = ops._USE_C_API
     # # pylint: enable=protected-access
 
-    # self._session = None
+    self._session = None
     # opts = tf_session.TF_NewSessionOptions(target=self._target, config=config)
     # try:
     #   if self._created_with_new_api:
@@ -722,7 +722,7 @@ class BaseSession(SessionInterface):
   @property
   def graph(self):
     """The graph that was launched in this session."""
-    return
+    # return
     return self._graph
 
   @property
@@ -792,7 +792,7 @@ class BaseSession(SessionInterface):
     Returns:
       A context manager using this session as the default session.
     """
-    return
+    # return
     return ops.default_session(self)
 
 
@@ -888,7 +888,6 @@ class BaseSession(SessionInterface):
     # options_ptr = tf_session.TF_NewBufferFromString(compat.as_bytes(options.SerializeToString())) if options else None
     # run_metadata_ptr = tf_session.TF_NewBuffer() if run_metadata else None
     # assert(options_ptr == run_metadata_ptr == None), "Notimplemented"
-    import time
     if not fetches:   # If fetches is none, we return None
       return
  
@@ -1621,21 +1620,21 @@ class Session(BaseSession):
     """
     super(Session, self).__init__(target, graph, config=config)
     # NOTE(mrry): Create these on first `__enter__` to avoid a reference cycle.
-    # self._default_graph_context_manager = None
-    # self._default_session_context_manager = None
+    self._default_graph_context_manager = None
+    self._default_session_context_manager = None
 
   def __enter__(self):
-    return self
-    # if self._default_graph_context_manager is None:
-    #   self._default_graph_context_manager = self.graph.as_default()
-    # else:
-    #   raise RuntimeError('Session context managers are not re-entrant. '
-    #                      'Use `Session.as_default()` if you want to enter '
-    #                      'a session multiple times.')
-    # if self._default_session_context_manager is None:
-    #   self._default_session_context_manager = self.as_default()
-    # self._default_graph_context_manager.__enter__()
-    # return self._default_session_context_manager.__enter__()
+    # return self
+    if self._default_graph_context_manager is None:
+      self._default_graph_context_manager = self.graph.as_default()
+    else:
+      raise RuntimeError('Session context managers are not re-entrant. '
+                         'Use `Session.as_default()` if you want to enter '
+                         'a session multiple times.')
+    if self._default_session_context_manager is None:
+      self._default_session_context_manager = self.as_default()
+    self._default_graph_context_manager.__enter__()
+    return self._default_session_context_manager.__enter__()
 
   def __exit__(self, exec_type, exec_value, exec_tb):
     return
@@ -1759,38 +1758,39 @@ class InteractiveSession(BaseSession):
       graph: (Optional.) The `Graph` to be launched (described above).
       config: (Optional) `ConfigProto` proto used to configure the session.
     """
-    if not config:
-      # If config is not provided, choose some reasonable defaults for
-      # interactive use:
-      #
-      #   - Grow GPU memory as needed at the cost of fragmentation.
-      gpu_options = config_pb2.GPUOptions(allow_growth=True)
-      config = config_pb2.ConfigProto(gpu_options=gpu_options)
-    # Interactive sessions always place pruned graphs.
-    config.graph_options.place_pruned_graph = True
+    # if not config:
+    #   # If config is not provided, choose some reasonable defaults for
+    #   # interactive use:
+    #   #
+    #   #   - Grow GPU memory as needed at the cost of fragmentation.
+    #   gpu_options = config_pb2.GPUOptions(allow_growth=True)
+    #   config = config_pb2.ConfigProto(gpu_options=gpu_options)
+    # # Interactive sessions always place pruned graphs.
+    # config.graph_options.place_pruned_graph = True
 
-    super(InteractiveSession, self).__init__(target, graph, config)
-    with InteractiveSession._count_lock:
-      if InteractiveSession._active_session_count > 0:
-        warnings.warn('An interactive session is already active. This can '
-                      'cause out-of-memory errors in some cases. You must '
-                      'explicitly call `InteractiveSession.close()` to release '
-                      'resources held by the other session(s).')
-      InteractiveSession._active_session_count += 1
-    # NOTE(mrry): We do not use `Session._closed` here because it has unhelpful
-    # semantics (in particular, it is not set to true if `Session.close()` is
-    # called on a session that has not been "opened" by running a step) and we
-    # cannot change those semantics without breaking existing code.
-    self._explicitly_closed = False
+    super(InteractiveSession, self).__init__(target, graph, config=config)
+    # super(Session, self).__init__(target, graph, config=config)
+    # with InteractiveSession._count_lock:
+    #   if InteractiveSession._active_session_count > 0:
+    #     warnings.warn('An interactive session is already active. This can '
+    #                   'cause out-of-memory errors in some cases. You must '
+    #                   'explicitly call `InteractiveSession.close()` to release '
+    #                   'resources held by the other session(s).')
+    #   InteractiveSession._active_session_count += 1
+    # # NOTE(mrry): We do not use `Session._closed` here because it has unhelpful
+    # # semantics (in particular, it is not set to true if `Session.close()` is
+    # # called on a session that has not been "opened" by running a step) and we
+    # # cannot change those semantics without breaking existing code.
+    # self._explicitly_closed = False
 
     self._default_session = self.as_default()
-    self._default_session.enforce_nesting = False
+    # self._default_session.enforce_nesting = False
     self._default_session.__enter__()
-    self._explicit_graph = graph
-    if self._explicit_graph is not None:
-      self._default_graph = graph.as_default()
-      self._default_graph.enforce_nesting = False
-      self._default_graph.__enter__()
+    # self._explicit_graph = graph
+    # if self._explicit_graph is not None:
+    #   self._default_graph = graph.as_default()
+    #   self._default_graph.enforce_nesting = False
+    #   self._default_graph.__enter__()
 
   def close(self):
     """Closes an `InteractiveSession`."""

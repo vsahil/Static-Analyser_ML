@@ -441,6 +441,7 @@ def start_queue_runners(sess=None, coord=None, daemon=True, start=True,
   use the `tf.data` API instead.
   @end_compatibility
   """
+  return
   if context.executing_eagerly():
     raise RuntimeError("Queues are not compatible with eager execution.")
   if sess is None:
