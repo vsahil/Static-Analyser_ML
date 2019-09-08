@@ -1,0 +1,51 @@
+\documentclass[14pt]{article}
+\usepackage{booktabs}
+\usepackage{geometry}
+        \usepackage{extsizes}
+\geometry{a4paper, landscape, margin=1cm}
+\begin{document}
+\begin{tabular}{lrrr}
+\toprule
+StackOverFlow Benchmarks &  Light TF &  Original TF &   Gain \\
+\midrule
+ UT-4\_fix    &  0.051126 &     0.549523 &   11.0 \\
+ UT-4\_buggy  &  0.018490 &     0.295328 &   16.0 \\
+ UT-3\_buggy  &  0.003686 &     0.003779 &    1.0 \\
+ UT-3\_fix    &  0.064190 &     0.049507 &    1.0 \\
+ UT-9\_fix    &  0.015214 &     0.137596 &    9.0 \\
+ UT-9\_buggy  &  0.022445 &     0.158961 &    7.0 \\
+ UT-10\_buggy &  0.020638 &     0.256141 &   12.0 \\
+ UT-10\_fix   &  0.015087 &     0.157283 &   10.0 \\
+ UT-13\_fix   &  0.016816 &     0.170637 &   10.0 \\
+ UT-13\_buggy &  0.019301 &     0.171356 &    9.0 \\
+ UT-8\_buggy  &  0.004084 &     0.007756 &    2.0 \\
+ UT-8\_fix    &  0.017781 &     0.194584 &   11.0 \\
+ UT-2\_buggy  &  0.018121 &     0.018162 &    1.0 \\
+ UT-2\_fix    &  0.018975 &     0.026365 &    1.0 \\
+ UT-11\_buggy &  0.089220 &     0.094650 &    1.0 \\
+ UT-11\_fix   &  0.061249 &     0.057590 &    1.0 \\
+ UT-5\_fix    &  0.012264 &     2.197760 &  179.0 \\
+ UT-5\_buggy  &  0.012151 &     1.585310 &  130.0 \\
+ UT-1\_buggy  &  0.004989 &     0.499521 &  100.0 \\
+ UT-1\_fix    &  0.011794 &     2.218510 &  188.0 \\
+ UT-12\_buggy &  0.019245 &     0.356125 &   19.0 \\
+ UT-12\_fix   &  0.023544 &     0.404072 &   17.0 \\
+ UT-15\_fix   &  0.015710 &     0.152491 &   10.0 \\
+ UT-15\_buggy &  0.016913 &     0.133158 &    8.0 \\
+ UT-6\_buggy  &  0.020455 &     0.026490 &    1.0 \\
+ UT-6\_fix    &  0.015933 &     0.186479 &   12.0 \\
+\bottomrule
+\end{tabular}
+\begin{tabular}{lrrr}
+\toprule
+Github Benchmarks &  Light TF &  Original TF &     Gain \\
+\midrule
+ UT-1\_buggy &  0.020453 &      2.28324 &    112.0 \\
+ UT-1\_fix   &  0.018934 &      1.93896 &    102.0 \\
+ UT-9\_buggy &  0.101162 &      2.31754 &     23.0 \\
+ UT-9\_fix   &  0.075013 &      2.35809 &     31.0 \\
+ UT-7\_buggy &  0.025682 &      5.05352 &    197.0 \\
+ UT-7\_fix   &  0.019461 &    496.64100 &  25520.0 \\
+\bottomrule
+\end{tabular}
+\end{document}

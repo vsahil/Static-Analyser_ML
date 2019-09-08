@@ -1,0 +1,2 @@
+Benchmarks, UT-1_buggy, UT-1_fix, UT-9_buggy, UT-9_fix, UT-7_buggy, UT-7_fix
+Light TF, 0.0204526, 0.0189343, 0.101162, 0.0750127, 0.0256816, 0.0194611
