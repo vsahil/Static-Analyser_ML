@@ -1,0 +1,2 @@
+Benchmarks, UT-1_buggy, UT-1_fix, UT-9_buggy, UT-9_fix, UT-7_buggy, UT-7_fix
+TensorFlow Baseline1, 2.72417, 2.04975, 3.037578, 5000, 5.10912, 536.835
