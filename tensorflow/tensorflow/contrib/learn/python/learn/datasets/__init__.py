@@ -44,6 +44,7 @@ DATASETS = {
     # Returns base.Dataset.
     'iris': base.load_iris,
     'boston': base.load_boston,
+    'boston_small': base.load_boston_small,
     # Returns base.Datasets (train/validation/test sets).
     'mnist': mnist.load_mnist,
     'dbpedia': text_datasets.load_dbpedia,
@@ -57,7 +58,7 @@ SYNTHETIC = {
 }
 
 
-@deprecated(None, 'Please use tf.data.')
+# @deprecated(None, 'Please use tf.data.')
 def load_dataset(name, size='small', test_with_fake_data=False):
   """Loads dataset by name.
 
@@ -80,7 +81,7 @@ def load_dataset(name, size='small', test_with_fake_data=False):
     return DATASETS[name]()
 
 
-@deprecated(None, 'Please use tf.data.')
+# @deprecated(None, 'Please use tf.data.')
 def make_dataset(name, n_samples=100, noise=None, seed=42, *args, **kwargs):
   """Creates binary synthetic datasets.
 

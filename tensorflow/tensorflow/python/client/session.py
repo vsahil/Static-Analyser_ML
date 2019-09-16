@@ -795,7 +795,6 @@ class BaseSession(SessionInterface):
     # return
     return ops.default_session(self)
 
-
   def evaluate_fetches(self, fetches, feed_dict):
       
     def topology_sort_of_operation_nodes(operation):
@@ -847,6 +846,8 @@ class BaseSession(SessionInterface):
 
     gph = ops.our_Graph.get_default_graph()
 
+    # print(nodes_sorted, "nodes sorted")
+
     for node in nodes_sorted:
       if isinstance(node, variables.Variable):    # For something like sess.run(var)   or isinstance(node, Constant):
         assert(node in gph.variables), "variables should be in variables graph"
@@ -865,6 +866,7 @@ class BaseSession(SessionInterface):
         elif node in gph.identity_placeholders:
           node.output = node.shape      # this has been constructed just to support StackOverFlow/UT-2/fixed
         else:
+          # print(gph.placeholders, "CHECK", id(node), [id(i) for i in gph.placeholders], feed_dict.keys(), [id(i) for i in feed_dict.keys()])
           print(node in gph.placeholders, node in gph.variables, node in gph.operations, node in gph.constants, "SEE THIS")
           raise NotImplementedError("This is the type of tensor:{}".format(node))
       elif isinstance(node, int):   # like depth in `tf.one_hot` case
@@ -880,7 +882,6 @@ class BaseSession(SessionInterface):
         raise NotImplementedError("This is the type:{}".format(type(node)))
 
     return fetches.output
-
 
   def run(self, fetches, feed_dict=None, options=None, run_metadata=None):
     # Runs operations and evaluates tensors in `fetches`
@@ -967,7 +968,6 @@ class BaseSession(SessionInterface):
     #   if options:
     #     tf_session.TF_DeleteBuffer(options_ptr)
     # return result
-
 
   def partial_run(self, handle, fetches, feed_dict=None):
     """Continues the execution with more feeds and fetches.

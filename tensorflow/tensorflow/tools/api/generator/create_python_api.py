@@ -230,6 +230,10 @@ def get_api_init_text():
             continue
 
           if "minimum" in str(module_contents_name) and names[-1] == "minimum" and "gen_math_ops" in module.__name__:    #  I added it to tensor_shape file and problem was solved, its being imported from tensor_shape in __init__.py # and ("gen_math_ops" in module.__name__ or "standard_ops" in module.__name__):
+            continue
+
+          if "lrn" in str(module_contents_name) and "gen_nn_ops" in module.__name__:    # names[-1] can be lrn or local_response_normalization I added it to nn_ops file
+            # print(names)
             # print(attr, module_contents_name, attr._tf_api_names, names, dest_module, id(attr), module.__name__, "HELLLO")
             # nw = dest_module + '.' + names[-1]
             # print(len(module_code_builder._dest_import_to_id), nw in module_code_builder._dest_import_to_id, "dekhio", len(module_code_builder._dest_import_to_id), nw in module_code_builder._dest_import_to_id)

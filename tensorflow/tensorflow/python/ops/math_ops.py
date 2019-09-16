@@ -1572,7 +1572,10 @@ def reduce_sum(input_tensor,
   keepdims = deprecation.deprecated_argument_lookup("keepdims", keepdims, "keep_dims", keep_dims)
   if keepdims is None:
     keepdims = False
-  assert(not(reduction_indices)), "current implementation"
+  assert(not(reduction_indices and axis)), "both axis and reduction_indices can't be non-None at same time"
+  if reduction_indices:
+    axis = reduction_indices
+
   if axis:
     if isinstance(axis, list):
       pass
@@ -1581,8 +1584,8 @@ def reduce_sum(input_tensor,
     else:
       raise NotImplementedError
     assert(all(len(input_tensor.shape) > i > -len(input_tensor.shape)) for i in axis), "Must be in the range `[-rank(input_tensor), rank(input_tensor))`"
-  
-  if isinstance(input_tensor, ops.Tensor):
+
+  if isinstance(input_tensor, (ops.Tensor, variables.Variable)):
     shap = input_tensor.shape
     if shap:
       result = [1]      # need to make it a list

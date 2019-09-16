@@ -95,7 +95,7 @@ if os.name != "nt":
 from tensorflow.contrib.optimizer_v2 import optimizer_v2_symbols as optimizer_v2
 from tensorflow.contrib.receptive_field import receptive_field_api as receptive_field
 from tensorflow.contrib.remote_fused_graph import pylib as remote_fused_graph
-from tensorflow.contrib.specs import python as specs
+# from tensorflow.contrib.specs import python as specs
 from tensorflow.contrib.summary import summary
 
 from tensorflow.python.util.lazy_loader import LazyLoader

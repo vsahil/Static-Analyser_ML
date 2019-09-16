@@ -44,7 +44,7 @@ from tensorflow.python.util import deprecation
 from tensorflow.python.util.tf_export import tf_export
 
 # Aliases for some automatically-generated names.
-local_response_normalization = gen_nn_ops.lrn
+# local_response_normalization = gen_nn_ops.lrn
 
 # pylint: disable=protected-access
 
@@ -1216,11 +1216,80 @@ def conv2d_transpose(
     ValueError: If input/output depth does not match `filter`'s shape, or if
       padding is other than `'VALID'` or `'SAME'`.
   """
-  assert(isinstance(output_shape, list))
-  this_tensor = ops.Tensor(output_shape)
+  # if data_format == "NWHC":
+  #   d1 = 
+  if not padding == "SAME":
+    raise NotImplementedError
+
   gph = ops.our_Graph.get_default_graph()
-  gph.created_tensors.append(this_tensor)
-  return this_tensor
+
+  # This code will not work for placeholders as they don't have a fwd_func and don't have "yes_its_operation" defined
+  # TODO: Implement recursive Operations thing with while loop
+  # TODO: Implement for placeholders
+  if (isinstance(value, ops.Tensor) or value in gph.variables) and not value in gph.placeholders:
+    yes_its_operation = False
+  elif isinstance(value, ops.our_Operation):
+    yes_its_operation = True
+    shap = value.fwd_func(*value.input_nodes).shape
+  else:
+    raise NotImplementedError("This is value: {} and its type: {}".format(value, type(value)))
+
+  if data_format == "NHWC":
+    pos = 3
+    if not yes_its_operation:
+      assert(output_shape[1] == value.shape[1] * strides[1]), "This is the expected output shape"
+      assert(output_shape[2] == value.shape[2] * strides[2]), "This is the expected output shape"
+    else:     # this part is for dynamic check before the lazy check in the forward function
+      assert(output_shape[1] == shap[1] * strides[1]), "This is the expected output shape"
+      assert(output_shape[2] == shap[2] * strides[2]), "This is the expected output shape"
+  elif data_format == "NCHW":
+    pos = 1
+    if not yes_its_operation:
+      assert(output_shape[3] == value.shape[3] * strides[3]), "This is the expected output shape"
+      assert(output_shape[2] == value.shape[2] * strides[2]), "This is the expected output shape"
+    else:
+      assert(output_shape[3] == shap[3] * strides[3]), "This is the expected output shape"
+      assert(output_shape[2] == shap[2] * strides[2]), "This is the expected output shape"
+  else:
+    assert False, "unexpected data format"
+  
+  if not yes_its_operation:
+    assert(value.shape[pos] == filter.shape[pos]), "`filter`'s `in_channels` dimension must match that of `value`."
+    this_tensor = ops.Tensor(list(output_shape))
+    gph.created_tensors.append(this_tensor)
+    return this_tensor
+  else:
+    assert(shap[pos] == filter.shape[pos]), "`filter`'s `in_channels` dimension must match that of `value`."
+
+  
+  def forward(value):
+    if isinstance(value, ops.our_Operation):
+      shap = value.fwd_func(*value.input_nodes).shape   # always make our_Operation return a tensor or variable
+    elif isinstance(value, ops.Tensor):     # for placeholders 
+      shap = value.shape
+    else:
+      print("<This is input:{} and its type:{}>".format(value, type(value))); raise NotImplementedError
+    
+    if data_format == "NHWC":
+      pos = 3
+      assert(output_shape[1] == shap[1] * strides[1]), "This is the expected output shape"
+      assert(output_shape[2] == shap[2] * strides[2]), "This is the expected output shape"
+    elif data_format == "NCHW":
+      pos = 1
+      assert(output_shape[3] == shap[3] * strides[3]), "This is the expected output shape"
+      assert(output_shape[2] == shap[2] * strides[2]), "This is the expected output shape"
+    else:
+      assert False, "unexpected data format"
+
+    assert(shap[pos] == filter.shape[pos]), "`filter`'s `in_channels` dimension must match that of `value`."
+    
+    return ops.Tensor(list(output_shape))
+
+  this_operation = ops.our_Operation([value], ffnc=forward, name="conv2d_transpose")   # create a new operation object each time
+  gph.operations.append(this_operation)
+  return this_operation
+
+  
 
   # with ops.name_scope(name, "conv2d_transpose",
   #                     [value, filter, output_shape]) as name:
@@ -1506,8 +1575,29 @@ def bias_add(value, bias, data_format=None, name=None):
   Returns:
     A `Tensor` with the same type as `value`.
   """
-  assert(len(bias.shape) == 1 and value.shape[-1] == bias.shape[0]), "bias should be 1-D `Tensor` with size matching the last dimension of `value`"
-  return value    # no change in shape
+  assert(len(bias.shape) == 1), "`bias` should be 1-D `Tensor`"
+  gph = ops.our_Graph.get_default_graph()
+
+  if isinstance(value, ops.Tensor) and not value in gph.placeholders:
+    shap = value.shape
+    assert(value.shape[-1] == bias.shape[0]), "`bias` size should match the last dimension of `value`"
+    return value    # no change in shape
+
+  def forward(value):
+    if isinstance(value, ops.our_Operation):
+      shap = value.fwd_func(*value.input_nodes).shape   # always make our_Operation return a tensor or variable
+    elif isinstance(value, ops.Tensor):
+      shap = value.shape
+    else:
+      print("<This is input:{} and its type:{}>".format(value, type(value))); raise NotImplementedError
+    assert(shap[-1] == bias.shape[0]), "bias should be 1-D `Tensor` with size matching the last dimension of `value`"
+    return value    # No change in shape
+
+  this_operation = ops.our_Operation([value], ffnc=forward, name="bias_add")   # create a new operation object each time
+  gph.operations.append(this_operation)
+  return this_operation
+  
+  
 
   # with ops.name_scope(name, "BiasAdd", [value, bias]) as name:
   #   if not context.executing_eagerly():
@@ -2203,23 +2293,42 @@ def max_pool(value, ksize, strides, padding, data_format="NHWC", name=None):
   # All these asserts are input non-dependent and hence do not get copied in forward
   assert(padding == "SAME")
   assert(data_format == "NHWC")
-  assert(strides[0] == strides[3] == 1 and strides[1] == strides[2] == ksize[1] == ksize[2])
-  assert(ksize[0] == ksize[3] == 1)
-  
+  assert(strides[1] == strides[2] and ksize[1] == ksize[2])
+  assert(strides[0] == strides[3] == 1 and ksize[0] == ksize[3] == 1)
+
+  gph = ops.our_Graph.get_default_graph()
+
+  if isinstance(value, ops.Tensor) and not value in gph.placeholders:
+    shap = value.shape
+    a = math.ceil((shap[1] - ksize[1])/strides[1]) + 1   # strides are accessible without passing as well
+    b = math.ceil((shap[2] - ksize[2])/strides[2]) + 1
+    output_shape = [shap[0], a, b, shap[3]]
+    this_tensor = ops.Tensor(output_shape)    
+    gph.created_tensors.append(this_tensor)
+    return this_tensor
+
   def forward(value):
-    if isinstance(value, ops.Tensor):
+    if isinstance(value, ops.our_Operation):
+      out_ = value
+      while(not isinstance(out_, ops.Tensor)):
+        out_ = out_.fwd_func(*out_.input_nodes)
+      shap = out_.shape
+      
+      # while(isinstance(value, ops.our_Operation)):
+        # value = value.fwd_func(*value.input_nodes)    # although value is being overwritten it doesn't cause a problem as it is not being used after this, unlike `conv2d` function in tensor_shape.py
+      # shap = value.shape
+      # shap = value.fwd_func(*value.input_nodes).shape   # always make our_Operation return a tensor or variable
+    elif isinstance(value, ops.Tensor):
       shap = value.shape
-    elif isinstance(value, ops.our_Operation):
-      shap = value.fwd_func(*value.input_nodes).shape   # always make our_Operation return a tensor or variable
     else:
       print("<This is input:{} and its type:{}>".format(value, type(value))); raise NotImplementedError
-    a = math.ceil(shap[1]/strides[1])    # strides are accessible without passing as well
-    b = math.ceil(shap[2]/strides[2])
+    
+    a = math.ceil((shap[1] - ksize[1])/strides[1]) + 1   # strides are accessible without passing as well
+    b = math.ceil((shap[2] - ksize[2])/strides[2]) + 1
     output_shape = [shap[0], a, b, shap[3]]
     return ops.Tensor(output_shape)    # No dtype
 
   this_operation = ops.our_Operation([value], ffnc=forward, name="max_pool")   # create a new operation object each time
-  gph = ops.our_Graph.get_default_graph()
   gph.operations.append(this_operation)
   return this_operation
 
@@ -2768,3 +2877,39 @@ def in_top_k(predictions, targets, k, name=None):
   """
   with ops.name_scope(name, "in_top_k"):
     return gen_nn_ops.in_top_kv2(predictions, targets, k, name=name)
+
+
+@tf_export('nn.local_response_normalization', 'nn.lrn')
+def lrn(input, depth_radius=5, bias=1, alpha=1, beta=0.5, name=None):
+  r"""Local Response Normalization.
+
+  The 4-D `input` tensor is treated as a 3-D array of 1-D vectors (along the last
+  dimension), and each vector is normalized independently.  Within a given vector,
+  each component is divided by the weighted, squared sum of inputs within
+  `depth_radius`.  In detail,
+
+      sqr_sum[a, b, c, d] =
+          sum(input[a, b, c, d - depth_radius : d + depth_radius + 1] ** 2)
+      output = input / (bias + alpha * sqr_sum) ** beta
+
+  For details, see [Krizhevsky et al., ImageNet classification with deep
+  convolutional neural networks (NIPS 2012)](http://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks).
+
+  Args:
+    input: A `Tensor`. Must be one of the following types: `half`, `bfloat16`, `float32`.
+      4-D.
+    depth_radius: An optional `int`. Defaults to `5`.
+      0-D.  Half-width of the 1-D normalization window.
+    bias: An optional `float`. Defaults to `1`.
+      An offset (usually positive to avoid dividing by 0).
+    alpha: An optional `float`. Defaults to `1`.
+      A scale factor, usually positive.
+    beta: An optional `float`. Defaults to `0.5`. An exponent.
+    name: A name for the operation (optional).
+
+  Returns:
+    A `Tensor`. Has the same type as `input`.
+  """
+  if isinstance(input, ops.our_Operation):   # the input of this must be an our_Operation object
+    input.name_op = input.name_op + "_+_nn.lrn"
+  return input      # no change in shape, just returning this

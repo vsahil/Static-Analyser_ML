@@ -129,6 +129,23 @@ def load_boston(data_path=None):
       data_path, target_dtype=np.float, features_dtype=np.float)
 
 
+# @deprecated(None, 'Use scikits.learn.datasets.')
+def load_boston_small(data_path=None):
+  """Load Boston housing dataset.
+
+  Args:
+      data_path: string, path to boston dataset (optional)
+
+  Returns:
+    Dataset object containing data in-memory.
+  """
+  if data_path is None:
+    module_path = path.dirname(__file__)
+    data_path = path.join(module_path, 'data', 'boston_small.csv')
+  return load_csv_with_header(
+      data_path, target_dtype=np.float, features_dtype=np.float)
+
+
 # @deprecated(None, 'Use the retry module or similar alternatives.')
 def retry(initial_delay,
           max_delay,

@@ -314,8 +314,23 @@ def shape(input, name=None, out_type=dtypes.int32):
     A `Tensor` of type `out_type`.
   """
 
-  this_tensor = ops.Tensor(list(input.shape), out_type)   # returns a tensor containing the shape of the input
+  
+  
+  # def forward(self):
+  #   if isinstance(self, our_Operation):
+  #     return self.fwd_func(*self.input_nodes).shape
+
+  #   else:
+  #     raise NotImplementedError("self: {}, type(self):{}".format(self, type(self)))
+
+
+  # this_operation = our_Operation([self], ffnc=forward, name="tf_shape")   # create a new operation object each time
+  # gph.operations.append(this_operation)
+  # return this_operation
+  
+  # print(input, "HELLO", input in gph.placeholders)
   gph = ops.our_Graph.get_default_graph()
+  this_tensor = ops.Tensor(list(input.shape), "tf_shape")   # mark this as a Tensor shape type
   gph.created_tensors.append(this_tensor)
   return this_tensor
   
@@ -1920,8 +1935,24 @@ def ones(shape, dtype=dtypes.float32, name=None):
   Returns:
     A `Tensor` with all elements set to 1.
   """
-  return ops.Tensor(shape, dtypes.as_dtype(dtype).base_dtype)
 
+  if all(isinstance(i, int) for i in shape):
+    return ops.Tensor(list(shape))
+  elif isinstance(shape, list):# all(isinstance(i, ops.Tensor) for i in shape):
+    new_shape = []
+    for i in shape:
+      if isinstance(i, ops.Tensor):
+        new_shape.extend(i.shape)
+      elif isinstance(i, int):
+        new_shape.append(i)
+      else:
+        raise NotImplementedError("shape: {}, type(element):{}".format(shape, type(i)))
+    return ops.Tensor(new_shape)
+  else:
+    for i in shape:
+      print(i, type(i), "HEH")
+    raise NotImplementedError("shape: {}, type(shape):{}".format(shape, type(shape)))
+  
   # dtype = dtypes.as_dtype(dtype).base_dtype
   # with ops.name_scope(name, "ones", [shape]) as name:
   #   one = True if dtype == dtypes.bool else 1
@@ -1987,7 +2018,10 @@ def placeholder(dtype, shape=None, name=None):
   # if context.executing_eagerly():
     # raise RuntimeError("tf.placeholder() is not compatible with eager execution.")
   # return
-  this_placeholder = ops.Tensor(shape=shape, dtype=dtypes.as_dtype(dtype).base_dtype if dtype else dtype)
+  # this_placeholder = ops.Tensor(shape=shape, dtype=dtypes.as_dtype(dtype).base_dtype if dtype else dtype)
+  if shape is None:
+    shape = [None]    # to make it a list
+  this_placeholder = ops.Tensor(shape=shape)
   gph = ops.our_Graph.get_default_graph()
   gph.placeholders.append(this_placeholder)   # added this to placeholders set
   return this_placeholder
@@ -3009,23 +3043,56 @@ def tile(input, multiples, name=None):
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
+  
+  gph = ops.our_Graph.get_default_graph()
+
+  #TODO: Implement this for placeholders
+
   if isinstance(input, (ops.Tensor, variables.Variable)):
     shap1 = input.shape
+  elif isinstance(input, ops.our_Operation):
+    yes_its_operation = True
+    shap1 = input.fwd_func(*input.input_nodes).shape
   else:
     raise NotImplementedError
   
   if isinstance(multiples, (ops.Tensor, variables.Variable)):
     shap2 = multiples.shape
+  elif isinstance(multiples, list):
+    shap2 = multiples
   else:
     raise NotImplementedError
   
   assert(len(shap1) == len(shap2)), "Length of multiplies must be the same as the number of dimensions in `input`"
   
-  output_shape = [shap1[i] * shap2[i] for i in range(len(shap1))]
-  this_tensor = ops.Tensor(output_shape)
-  gph = ops.our_Graph.get_default_graph()
-  gph.created_tensors.append(this_tensor)
-  return this_tensor
+  if not yes_its_operation:
+    output_shape = [shap1[i] * shap2[i] for i in range(len(shap1))]
+    this_tensor = ops.Tensor(output_shape)
+    gph.created_tensors.append(this_tensor)
+    return this_tensor
+
+  def forward(input_):
+    if isinstance(input, ops.our_Operation):
+      shap1 = input.fwd_func(*input.input_nodes).shape
+    elif isinstance(input, (ops.Tensor, variables.Variable)):
+      shap1 = input.shape
+    else:
+      raise NotImplementedError
+    
+    # if isinstance(multiples, (ops.Tensor, variables.Variable)):   # multiples is not an operation object, pick it from above
+    #   shap2 = multiples.shape
+    # else:
+    #   raise NotImplementedError
+    
+    assert(len(shap1) == len(shap2)), "Length of multiplies must be the same as the number of dimensions in `input`"
+    
+    output_shape = [shap1[i] * shap2[i] for i in range(len(shap1))]
+    this_tensor = ops.Tensor(output_shape)
+    return this_tensor
+
+  this_operation = ops.our_Operation([input], ffnc=forward, name="tile")   # create a new operation object each time
+  gph.operations.append(this_operation)
+  return this_operation
   
   # no need of operation as none of its inputs are operations.
   # def forward(input, multiples):

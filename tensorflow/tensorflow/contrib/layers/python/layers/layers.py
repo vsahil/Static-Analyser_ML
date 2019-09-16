@@ -425,7 +425,7 @@ def _fused_batch_norm(inputs,
     return utils.collect_named_outputs(outputs_collections, sc.name, outputs)
 
 
-@add_arg_scope
+# @add_arg_scope
 def batch_norm(inputs,
                decay=0.999,
                center=True,
@@ -557,15 +557,16 @@ def batch_norm(inputs,
     ValueError: If rank or channels dimension of `inputs` is undefined.
   """
   
+    
   if isinstance(inputs, ops.our_Operation):   # the input of this must be an our_Operation object
-    inputs.name_op = inputs.name_op + "_+_log"
+    inputs.name_op = inputs.name_op + "_+_batch_norm"
   # elif isinstance(x, list):   # something like [0.1]
     # shape = list(np.array(x).shape)
     # return ops.Tensor(shape)
   return inputs
   
-  if fused is None:
-    fused = True
+  # if fused is None:
+  #   fused = True
 
   # Only use _fused_batch_norm if all of the following three
   # conditions are true:
@@ -586,276 +587,276 @@ def batch_norm(inputs,
   # else:
   #   raise NotImplementedError("this is the type of inputs:{}".format(type(inputs)))
 
-  possible_to_fuse = (
-      batch_weights is None and not renorm and rank in [2, 4] and
-      adjustment is None)
-  if fused and possible_to_fuse and (
-      zero_debias_moving_mean or rank == 2 or
-      updates_collections is not ops.GraphKeys.UPDATE_OPS):
-    return _fused_batch_norm(
-        inputs,
-        decay=decay,
-        center=center,
-        scale=scale,
-        epsilon=epsilon,
-        activation_fn=activation_fn,
-        param_initializers=param_initializers,
-        param_regularizers=param_regularizers,
-        updates_collections=updates_collections,
-        is_training=is_training,
-        reuse=reuse,
-        variables_collections=variables_collections,
-        outputs_collections=outputs_collections,
-        trainable=trainable,
-        data_format=data_format,
-        zero_debias_moving_mean=zero_debias_moving_mean,
-        scope=scope)
+  # possible_to_fuse = (
+  #     batch_weights is None and not renorm and rank in [2, 4] and
+  #     adjustment is None)
+  # if fused and possible_to_fuse and (
+  #     zero_debias_moving_mean or rank == 2 or
+  #     updates_collections is not ops.GraphKeys.UPDATE_OPS):
+  #   return _fused_batch_norm(
+  #       inputs,
+  #       decay=decay,
+  #       center=center,
+  #       scale=scale,
+  #       epsilon=epsilon,
+  #       activation_fn=activation_fn,
+  #       param_initializers=param_initializers,
+  #       param_regularizers=param_regularizers,
+  #       updates_collections=updates_collections,
+  #       is_training=is_training,
+  #       reuse=reuse,
+  #       variables_collections=variables_collections,
+  #       outputs_collections=outputs_collections,
+  #       trainable=trainable,
+  #       data_format=data_format,
+  #       zero_debias_moving_mean=zero_debias_moving_mean,
+  #       scope=scope)
 
-  if data_format not in (DATA_FORMAT_NCHW, DATA_FORMAT_NHWC):
-    raise ValueError('data_format has to be either NCHW or NHWC.')
+  # if data_format not in (DATA_FORMAT_NCHW, DATA_FORMAT_NHWC):
+  #   raise ValueError('data_format has to be either NCHW or NHWC.')
 
-  layer_variable_getter = _build_variable_getter()
-  with variable_scope.variable_scope(
-      scope,
-      'BatchNorm', [inputs],
-      reuse=reuse,
-      custom_getter=layer_variable_getter) as sc:
-    # inputs = ops.convert_to_tensor(inputs)
+  # layer_variable_getter = _build_variable_getter()
+  # with variable_scope.variable_scope(
+  #     scope,
+  #     'BatchNorm', [inputs],
+  #     reuse=reuse,
+  #     custom_getter=layer_variable_getter) as sc:
+  #   # inputs = ops.convert_to_tensor(inputs)
 
-    # Determine whether we can use the core layer class.
-    if (batch_weights is None and
-        updates_collections is ops.GraphKeys.UPDATE_OPS and
-        not zero_debias_moving_mean):
-      # Use the core layer class.
-      axis = 1 if data_format == DATA_FORMAT_NCHW else -1
-      if not param_initializers:
-        param_initializers = {}
-      beta_initializer = param_initializers.get('beta',
-                                                init_ops.zeros_initializer())
-      gamma_initializer = param_initializers.get('gamma',
-                                                 init_ops.ones_initializer())
-      moving_mean_initializer = param_initializers.get(
-          'moving_mean', init_ops.zeros_initializer())
-      moving_variance_initializer = param_initializers.get(
-          'moving_variance', init_ops.ones_initializer())
-      if not param_regularizers:
-        param_regularizers = {}
-      beta_regularizer = param_regularizers.get('beta')
-      gamma_regularizer = param_regularizers.get('gamma')
-      layer = normalization_layers.BatchNormalization(
-          axis=axis,
-          momentum=decay,
-          epsilon=epsilon,
-          center=center,
-          scale=scale,
-          beta_initializer=beta_initializer,
-          gamma_initializer=gamma_initializer,
-          moving_mean_initializer=moving_mean_initializer,
-          moving_variance_initializer=moving_variance_initializer,
-          beta_regularizer=beta_regularizer,
-          gamma_regularizer=gamma_regularizer,
-          trainable=trainable,
-          renorm=renorm,
-          renorm_clipping=renorm_clipping,
-          renorm_momentum=renorm_decay,
-          adjustment=adjustment,
-          name=sc.name,
-          _scope=sc,
-          _reuse=reuse,
-          fused=fused)
-      outputs = layer.apply(inputs, training=is_training)
+  #   # Determine whether we can use the core layer class.
+  #   if (batch_weights is None and
+  #       updates_collections is ops.GraphKeys.UPDATE_OPS and
+  #       not zero_debias_moving_mean):
+  #     # Use the core layer class.
+  #     axis = 1 if data_format == DATA_FORMAT_NCHW else -1
+  #     if not param_initializers:
+  #       param_initializers = {}
+  #     beta_initializer = param_initializers.get('beta',
+  #                                               init_ops.zeros_initializer())
+  #     gamma_initializer = param_initializers.get('gamma',
+  #                                                init_ops.ones_initializer())
+  #     moving_mean_initializer = param_initializers.get(
+  #         'moving_mean', init_ops.zeros_initializer())
+  #     moving_variance_initializer = param_initializers.get(
+  #         'moving_variance', init_ops.ones_initializer())
+  #     if not param_regularizers:
+  #       param_regularizers = {}
+  #     beta_regularizer = param_regularizers.get('beta')
+  #     gamma_regularizer = param_regularizers.get('gamma')
+  #     layer = normalization_layers.BatchNormalization(
+  #         axis=axis,
+  #         momentum=decay,
+  #         epsilon=epsilon,
+  #         center=center,
+  #         scale=scale,
+  #         beta_initializer=beta_initializer,
+  #         gamma_initializer=gamma_initializer,
+  #         moving_mean_initializer=moving_mean_initializer,
+  #         moving_variance_initializer=moving_variance_initializer,
+  #         beta_regularizer=beta_regularizer,
+  #         gamma_regularizer=gamma_regularizer,
+  #         trainable=trainable,
+  #         renorm=renorm,
+  #         renorm_clipping=renorm_clipping,
+  #         renorm_momentum=renorm_decay,
+  #         adjustment=adjustment,
+  #         name=sc.name,
+  #         _scope=sc,
+  #         _reuse=reuse,
+  #         fused=fused)
+  #     outputs = layer.apply(inputs, training=is_training)
 
-      # Add variables to collections.
-      _add_variable_to_collections(layer.moving_mean, variables_collections,
-                                   'moving_mean')
-      _add_variable_to_collections(layer.moving_variance, variables_collections,
-                                   'moving_variance')
-      if layer.beta is not None:
-        _add_variable_to_collections(layer.beta, variables_collections, 'beta')
-      if layer.gamma is not None:
-        _add_variable_to_collections(layer.gamma, variables_collections,
-                                     'gamma')
+  #     # Add variables to collections.
+  #     _add_variable_to_collections(layer.moving_mean, variables_collections,
+  #                                  'moving_mean')
+  #     _add_variable_to_collections(layer.moving_variance, variables_collections,
+  #                                  'moving_variance')
+  #     if layer.beta is not None:
+  #       _add_variable_to_collections(layer.beta, variables_collections, 'beta')
+  #     if layer.gamma is not None:
+  #       _add_variable_to_collections(layer.gamma, variables_collections,
+  #                                    'gamma')
 
-      if activation_fn is not None:
-        outputs = activation_fn(outputs)
-      return utils.collect_named_outputs(outputs_collections, sc.name, outputs)
+  #     if activation_fn is not None:
+  #       outputs = activation_fn(outputs)
+  #     return utils.collect_named_outputs(outputs_collections, sc.name, outputs)
 
-    # Not supported by layer class: batch_weights argument,
-    # and custom updates_collections. In that case, use the legacy BN
-    # implementation.
-    # Custom updates collections are not supported because the update logic
-    # is different in this case, in particular w.r.t. "forced updates" and
-    # update op reuse.
-    if renorm:
-      raise ValueError('renorm is not supported with batch_weights, '
-                       'updates_collections or zero_debias_moving_mean')
-    if isinstance(inputs, ops.our_Operation):
-      inputs_shape = inputs.fwd_func(*inputs.input_nodes).shape
-    elif isinstance(inputs, ops.Tensor):
-      inputs_shape = len(inputs.get_shape())
-    else:
-      raise NotImplementedError("this is the type of inputs:{}".format(type(inputs)))
-    # inputs_shape = inputs.get_shape()
-    inputs_rank = len(inputs_shape)   #.ndims
-    if inputs_rank is None:
-      raise ValueError('Inputs %s has undefined rank.' % inputs.name)
-    # dtype = inputs.dtype.base_dtype
-    if batch_weights is not None:
-      batch_weights = ops.convert_to_tensor(batch_weights)
-      inputs_shape[0:1].assert_is_compatible_with(batch_weights.get_shape())
-      # Reshape batch weight values so they broadcast across inputs.
-      nshape = [-1] + [1 for _ in range(inputs_rank - 1)]
-      batch_weights = array_ops.reshape(batch_weights, nshape)
+  #   # Not supported by layer class: batch_weights argument,
+  #   # and custom updates_collections. In that case, use the legacy BN
+  #   # implementation.
+  #   # Custom updates collections are not supported because the update logic
+  #   # is different in this case, in particular w.r.t. "forced updates" and
+  #   # update op reuse.
+  #   if renorm:
+  #     raise ValueError('renorm is not supported with batch_weights, '
+  #                      'updates_collections or zero_debias_moving_mean')
+  #   if isinstance(inputs, ops.our_Operation):
+  #     inputs_shape = inputs.fwd_func(*inputs.input_nodes).shape
+  #   elif isinstance(inputs, ops.Tensor):
+  #     inputs_shape = len(inputs.get_shape())
+  #   else:
+  #     raise NotImplementedError("this is the type of inputs:{}".format(type(inputs)))
+  #   # inputs_shape = inputs.get_shape()
+  #   inputs_rank = len(inputs_shape)   #.ndims
+  #   if inputs_rank is None:
+  #     raise ValueError('Inputs %s has undefined rank.' % inputs.name)
+  #   # dtype = inputs.dtype.base_dtype
+  #   if batch_weights is not None:
+  #     batch_weights = ops.convert_to_tensor(batch_weights)
+  #     inputs_shape[0:1].assert_is_compatible_with(batch_weights.get_shape())
+  #     # Reshape batch weight values so they broadcast across inputs.
+  #     nshape = [-1] + [1 for _ in range(inputs_rank - 1)]
+  #     batch_weights = array_ops.reshape(batch_weights, nshape)
 
-    if data_format == DATA_FORMAT_NCHW:
-      moments_axes = [0] + list(range(2, inputs_rank))
-      params_shape = inputs_shape[1:2]
-      # For NCHW format, rather than relying on implicit broadcasting, we
-      # explicitly reshape the params to params_shape_broadcast when computing
-      # the moments and the batch normalization.
-      params_shape_broadcast = list(
-          [1, inputs_shape[1].value] + [1 for _ in range(2, inputs_rank)])
-    else:
-      moments_axes = list(range(inputs_rank - 1))
-      params_shape = inputs_shape[-1:]
-      params_shape_broadcast = None
-    if not params_shape.is_fully_defined():
-      raise ValueError('Inputs %s has undefined channels dimension %s.' %
-                       (inputs.name, params_shape))
+  #   if data_format == DATA_FORMAT_NCHW:
+  #     moments_axes = [0] + list(range(2, inputs_rank))
+  #     params_shape = inputs_shape[1:2]
+  #     # For NCHW format, rather than relying on implicit broadcasting, we
+  #     # explicitly reshape the params to params_shape_broadcast when computing
+  #     # the moments and the batch normalization.
+  #     params_shape_broadcast = list(
+  #         [1, inputs_shape[1].value] + [1 for _ in range(2, inputs_rank)])
+  #   else:
+  #     moments_axes = list(range(inputs_rank - 1))
+  #     params_shape = inputs_shape[-1:]
+  #     params_shape_broadcast = None
+  #   if not params_shape.is_fully_defined():
+  #     raise ValueError('Inputs %s has undefined channels dimension %s.' %
+  #                      (inputs.name, params_shape))
 
-    # Allocate parameters for the beta and gamma of the normalization.
-    beta, gamma = None, None
-    if not param_initializers:
-      param_initializers = {}
-    if center:
-      beta_collections = utils.get_variable_collections(variables_collections,
-                                                        'beta')
-      beta_initializer = param_initializers.get('beta',
-                                                init_ops.zeros_initializer())
-      beta = variables.model_variable(
-          'beta',
-          shape=params_shape,
-          dtype=dtype,
-          initializer=beta_initializer,
-          collections=beta_collections,
-          trainable=trainable)
-    if scale:
-      gamma_collections = utils.get_variable_collections(
-          variables_collections, 'gamma')
-      gamma_initializer = param_initializers.get('gamma',
-                                                 init_ops.ones_initializer())
-      gamma = variables.model_variable(
-          'gamma',
-          shape=params_shape,
-          dtype=dtype,
-          initializer=gamma_initializer,
-          collections=gamma_collections,
-          trainable=trainable)
+  #   # Allocate parameters for the beta and gamma of the normalization.
+  #   beta, gamma = None, None
+  #   if not param_initializers:
+  #     param_initializers = {}
+  #   if center:
+  #     beta_collections = utils.get_variable_collections(variables_collections,
+  #                                                       'beta')
+  #     beta_initializer = param_initializers.get('beta',
+  #                                               init_ops.zeros_initializer())
+  #     beta = variables.model_variable(
+  #         'beta',
+  #         shape=params_shape,
+  #         dtype=dtype,
+  #         initializer=beta_initializer,
+  #         collections=beta_collections,
+  #         trainable=trainable)
+  #   if scale:
+  #     gamma_collections = utils.get_variable_collections(
+  #         variables_collections, 'gamma')
+  #     gamma_initializer = param_initializers.get('gamma',
+  #                                                init_ops.ones_initializer())
+  #     gamma = variables.model_variable(
+  #         'gamma',
+  #         shape=params_shape,
+  #         dtype=dtype,
+  #         initializer=gamma_initializer,
+  #         collections=gamma_collections,
+  #         trainable=trainable)
 
-    # Create moving_mean and moving_variance variables and add them to the
-    # appropriate collections. We disable variable partitioning while creating
-    # them, because assign_moving_average is not yet supported for partitioned
-    # variables (this needs to be handled carefully, as it may break
-    # the checkpoint backward compatibility).
-    with variable_scope.variable_scope(
-        variable_scope.get_variable_scope()) as local_scope:
-      local_scope.set_partitioner(None)
-      moving_mean_collections = utils.get_variable_collections(
-          variables_collections, 'moving_mean')
-      moving_mean_initializer = param_initializers.get(
-          'moving_mean', init_ops.zeros_initializer())
-      moving_mean = variables.model_variable(
-          'moving_mean',
-          shape=params_shape,
-          dtype=dtype,
-          initializer=moving_mean_initializer,
-          trainable=False,
-          collections=moving_mean_collections)
-      moving_variance_collections = utils.get_variable_collections(
-          variables_collections, 'moving_variance')
-      moving_variance_initializer = param_initializers.get(
-          'moving_variance', init_ops.ones_initializer())
-      moving_variance = variables.model_variable(
-          'moving_variance',
-          shape=params_shape,
-          dtype=dtype,
-          initializer=moving_variance_initializer,
-          trainable=False,
-          collections=moving_variance_collections)
+  #   # Create moving_mean and moving_variance variables and add them to the
+  #   # appropriate collections. We disable variable partitioning while creating
+  #   # them, because assign_moving_average is not yet supported for partitioned
+  #   # variables (this needs to be handled carefully, as it may break
+  #   # the checkpoint backward compatibility).
+  #   with variable_scope.variable_scope(
+  #       variable_scope.get_variable_scope()) as local_scope:
+  #     local_scope.set_partitioner(None)
+  #     moving_mean_collections = utils.get_variable_collections(
+  #         variables_collections, 'moving_mean')
+  #     moving_mean_initializer = param_initializers.get(
+  #         'moving_mean', init_ops.zeros_initializer())
+  #     moving_mean = variables.model_variable(
+  #         'moving_mean',
+  #         shape=params_shape,
+  #         dtype=dtype,
+  #         initializer=moving_mean_initializer,
+  #         trainable=False,
+  #         collections=moving_mean_collections)
+  #     moving_variance_collections = utils.get_variable_collections(
+  #         variables_collections, 'moving_variance')
+  #     moving_variance_initializer = param_initializers.get(
+  #         'moving_variance', init_ops.ones_initializer())
+  #     moving_variance = variables.model_variable(
+  #         'moving_variance',
+  #         shape=params_shape,
+  #         dtype=dtype,
+  #         initializer=moving_variance_initializer,
+  #         trainable=False,
+  #         collections=moving_variance_collections)
 
-    # If `is_training` doesn't have a constant value, because it is a `Tensor`,
-    # a `Variable` or `Placeholder` then is_training_value will be None and
-    # `needs_moments` will be true.
-    is_training_value = utils.constant_value(is_training)
-    need_moments = is_training_value is None or is_training_value
-    if need_moments:
-      # Calculate the moments based on the individual batch.
-      if batch_weights is None:
-        if data_format == DATA_FORMAT_NCHW:
-          mean, variance = nn.moments(inputs, moments_axes, keep_dims=True)
-          mean = array_ops.reshape(mean, [-1])
-          variance = array_ops.reshape(variance, [-1])
-        else:
-          mean, variance = nn.moments(inputs, moments_axes)
-      else:
-        if data_format == DATA_FORMAT_NCHW:
-          mean, variance = nn.weighted_moments(
-              inputs, moments_axes, batch_weights, keepdims=True)
-          mean = array_ops.reshape(mean, [-1])
-          variance = array_ops.reshape(variance, [-1])
-        else:
-          mean, variance = nn.weighted_moments(inputs, moments_axes,
-                                               batch_weights)
+  #   # If `is_training` doesn't have a constant value, because it is a `Tensor`,
+  #   # a `Variable` or `Placeholder` then is_training_value will be None and
+  #   # `needs_moments` will be true.
+  #   is_training_value = utils.constant_value(is_training)
+  #   need_moments = is_training_value is None or is_training_value
+  #   if need_moments:
+  #     # Calculate the moments based on the individual batch.
+  #     if batch_weights is None:
+  #       if data_format == DATA_FORMAT_NCHW:
+  #         mean, variance = nn.moments(inputs, moments_axes, keep_dims=True)
+  #         mean = array_ops.reshape(mean, [-1])
+  #         variance = array_ops.reshape(variance, [-1])
+  #       else:
+  #         mean, variance = nn.moments(inputs, moments_axes)
+  #     else:
+  #       if data_format == DATA_FORMAT_NCHW:
+  #         mean, variance = nn.weighted_moments(
+  #             inputs, moments_axes, batch_weights, keepdims=True)
+  #         mean = array_ops.reshape(mean, [-1])
+  #         variance = array_ops.reshape(variance, [-1])
+  #       else:
+  #         mean, variance = nn.weighted_moments(inputs, moments_axes,
+  #                                              batch_weights)
 
-      moving_vars_fn = lambda: (moving_mean, moving_variance)
-      if updates_collections is None:
+  #     moving_vars_fn = lambda: (moving_mean, moving_variance)
+  #     if updates_collections is None:
 
-        def _force_updates():
-          """Internal function forces updates moving_vars if is_training."""
-          update_moving_mean = moving_averages.assign_moving_average(
-              moving_mean, mean, decay, zero_debias=zero_debias_moving_mean)
-          update_moving_variance = moving_averages.assign_moving_average(
-              moving_variance, variance, decay, zero_debias=False)
-          with ops.control_dependencies(
-              [update_moving_mean, update_moving_variance]):
-            return array_ops.identity(mean), array_ops.identity(variance)
+  #       def _force_updates():
+  #         """Internal function forces updates moving_vars if is_training."""
+  #         update_moving_mean = moving_averages.assign_moving_average(
+  #             moving_mean, mean, decay, zero_debias=zero_debias_moving_mean)
+  #         update_moving_variance = moving_averages.assign_moving_average(
+  #             moving_variance, variance, decay, zero_debias=False)
+  #         with ops.control_dependencies(
+  #             [update_moving_mean, update_moving_variance]):
+  #           return array_ops.identity(mean), array_ops.identity(variance)
 
-        mean, variance = utils.smart_cond(is_training, _force_updates,
-                                          moving_vars_fn)
-      else:
+  #       mean, variance = utils.smart_cond(is_training, _force_updates,
+  #                                         moving_vars_fn)
+  #     else:
 
-        def _delay_updates():
-          """Internal function that delay updates moving_vars if is_training."""
-          update_moving_mean = moving_averages.assign_moving_average(
-              moving_mean, mean, decay, zero_debias=zero_debias_moving_mean)
-          update_moving_variance = moving_averages.assign_moving_average(
-              moving_variance, variance, decay, zero_debias=False)
-          return update_moving_mean, update_moving_variance
+  #       def _delay_updates():
+  #         """Internal function that delay updates moving_vars if is_training."""
+  #         update_moving_mean = moving_averages.assign_moving_average(
+  #             moving_mean, mean, decay, zero_debias=zero_debias_moving_mean)
+  #         update_moving_variance = moving_averages.assign_moving_average(
+  #             moving_variance, variance, decay, zero_debias=False)
+  #         return update_moving_mean, update_moving_variance
 
-        update_mean, update_variance = utils.smart_cond(
-            is_training, _delay_updates, moving_vars_fn)
-        ops.add_to_collections(updates_collections, update_mean)
-        ops.add_to_collections(updates_collections, update_variance)
-        # Use computed moments during training and moving_vars otherwise.
-        vars_fn = lambda: (mean, variance)
-        mean, variance = utils.smart_cond(is_training, vars_fn, moving_vars_fn)
-    else:
-      mean, variance = moving_mean, moving_variance
-    if data_format == DATA_FORMAT_NCHW:
-      mean = array_ops.reshape(mean, params_shape_broadcast)
-      variance = array_ops.reshape(variance, params_shape_broadcast)
-      if beta is not None:
-        beta = array_ops.reshape(beta, params_shape_broadcast)
-      if gamma is not None:
-        gamma = array_ops.reshape(gamma, params_shape_broadcast)
+  #       update_mean, update_variance = utils.smart_cond(
+  #           is_training, _delay_updates, moving_vars_fn)
+  #       ops.add_to_collections(updates_collections, update_mean)
+  #       ops.add_to_collections(updates_collections, update_variance)
+  #       # Use computed moments during training and moving_vars otherwise.
+  #       vars_fn = lambda: (mean, variance)
+  #       mean, variance = utils.smart_cond(is_training, vars_fn, moving_vars_fn)
+  #   else:
+  #     mean, variance = moving_mean, moving_variance
+  #   if data_format == DATA_FORMAT_NCHW:
+  #     mean = array_ops.reshape(mean, params_shape_broadcast)
+  #     variance = array_ops.reshape(variance, params_shape_broadcast)
+  #     if beta is not None:
+  #       beta = array_ops.reshape(beta, params_shape_broadcast)
+  #     if gamma is not None:
+  #       gamma = array_ops.reshape(gamma, params_shape_broadcast)
 
-    # Compute batch_normalization.
-    outputs = nn.batch_normalization(inputs, mean, variance, beta, gamma,
-                                     epsilon)
-    outputs.set_shape(inputs_shape)
-    if activation_fn is not None:
-      outputs = activation_fn(outputs)
-    return utils.collect_named_outputs(outputs_collections, sc.name, outputs)
+  #   # Compute batch_normalization.
+  #   outputs = nn.batch_normalization(inputs, mean, variance, beta, gamma,
+  #                                    epsilon)
+  #   outputs.set_shape(inputs_shape)
+  #   if activation_fn is not None:
+  #     outputs = activation_fn(outputs)
+  #   return utils.collect_named_outputs(outputs_collections, sc.name, outputs)
 
 
 @add_arg_scope

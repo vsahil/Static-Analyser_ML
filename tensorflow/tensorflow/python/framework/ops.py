@@ -297,6 +297,7 @@ class Tensor(_TensorLike):
     # self._value_index = value_index
     # self._dtype = dtypes.as_dtype(dtype)
 
+    # print(_USE_C_API, "HELLO")
     # if _USE_C_API:
     #   # This will be set by set_shape_and_handle_data_for_outputs.
     #   self._shape_val = None
@@ -323,8 +324,12 @@ class Tensor(_TensorLike):
     # initially other was of type Variable, but here it is of type tensor and you will see only this, 
     # assert(len(other.shape) == 1), "only doing it for bias in NN case"
     # assert(self.shape[-1] == other.shape[0]), "last dimension should be same"
-    a = self.shape
+    
     gph = our_Graph.get_default_graph()
+
+    # if self in gph.placeholders or other in gph.placeholders:   # implement this
+      
+
     if isinstance(other, Tensor) or other in gph.variables:   # we couldn't import Variables here
       b = other.shape
     elif isinstance(other, (float, int)):
@@ -334,24 +339,31 @@ class Tensor(_TensorLike):
     else:
       raise NotImplementedError("this is other:{}, type:{}".format(other, type(other)))
 
+    a = self.shape
+
     if b == "<unknown>":
       return Tensor(a)    # it will be the shape of a
     elif a == "<unknown>":
       return Tensor(b)  
     
     assert(isinstance(a, list) and isinstance(b, list))
-    # replace None by 1 in shapes:
+    # replace None by 1 in shapes:  # No don't do this, you are replace placeholders by 1 which is incorrect
     a = [1 if x==None else x for x in a]
     b = [1 if x==None else x for x in b]
 
+    # def max_(x, y):
+    #   if isinstance(x, int) and isinstance(y, int):
+    #     return max(x, y)
+    #   elif 
+
     if len(a) == len(b):      # BROADCASTING IMPLEMENTED
-      assert(all((a[i] == b[i] or (a[i] == 1 or b[i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+      assert(all((a[i] == b[i]) or (a[i] == 1 or b[i] == 1) or (a[i] == None or b[i] == None)) for i in range(len(a))), "Not broadcastable:{}, {}".format(a, b)
       output_shape = [max(a[i], b[i]) for i in range(len(a))]
     elif len(a) > len(b):
-      assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(b)))), "Not broadcastable:{}, {}".format(a, b)
+      assert(all((a[len(a)-i-1] == b[len(b)-1-i]) or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1) or (a[len(a)-1-i] == None or b[len(b)-1-i] == None)) for i in range(len(b))), "Not broadcastable:{}, {}".format(a, b)
       output_shape = a[:len(a)-len(b)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(b))][::-1]
     else:
-      assert(all((a[len(a)-i-1] == b[len(b)-1-i] or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1)) for i in range(len(a)))), "Not broadcastable:{}, {}".format(a, b)
+      assert(all((a[len(a)-i-1] == b[len(b)-1-i]) or (a[len(a)-i-1] == 1 or b[len(b)-1-i] == 1) or (a[len(a)-i-1] == None or b[len(b)-1-i] == None)) for i in range(len(a))), "Not broadcastable:{}, {}".format(a, b)
       output_shape = b[:len(b)-len(a)] + [max(a[len(a)-1-i], b[len(b)-1-i]) for i in range(len(a))][::-1]
 
     this_tensor = Tensor(output_shape)
@@ -5765,6 +5777,7 @@ class our_Operation():
       else:
         raise NotImplementedError("These are the types of self:{} and other:{}".format(type(self), type(other)))
       assert(len(shape1) == len(shape2))
+      # print(shape1, shape2)
       for i, j in zip(shape1, shape2):
         if i and j:   # only for Non-None objects
           assert(i == j), "for multiplication shape must be same %s %s"%(shape1, shape2)
@@ -5803,6 +5816,7 @@ class our_Operation():
       return session.run(self, feed_dict)
 
     def __getitem__(self, index):   # self is in operation, but if return its element then it loses its essence of Operation object
+      gph = our_Graph.get_default_graph()
       def forward(self):
         if isinstance(self, our_Operation):
           return self.fwd_func(*self.input_nodes)[index]
@@ -5811,7 +5825,6 @@ class our_Operation():
         else:
           raise NotImplementedError("self: {}, type(self):{}".format(self, type(self)))
       this_operation = our_Operation([self], ffnc=forward, name="__getitem__")   # create a new operation object each time
-      gph = our_Graph.get_default_graph()
       gph.operations.append(this_operation)
       return this_operation
 

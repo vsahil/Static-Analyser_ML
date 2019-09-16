@@ -23,6 +23,8 @@ from tensorflow.python.util import compat
 from tensorflow.python.util.tf_export import tf_export
 from tensorflow.python.framework import ops
 import numpy as np
+import math
+# import copy
 
 
 @tf_export("Dimension")
@@ -1033,7 +1035,10 @@ def reshape(tensor, shape, name=None):
 
       # else:
       assert(isinstance(shape, list) and all(isinstance(i, int) for i in shape)), "the shape elements must be all int"
-      assert(all(i > -1) for i in shape) , "only elements greater and or equal to -1 is allowed"
+      assert(all(i >= -1 for i in shape)) , "only elements greater and or equal to -1 is allowed"
+      # print(shape, "SEEE")
+      # for i in shape:
+      #   assert(i > -1)
 
       if isinstance(tensor, ops.Tensor):
         shap = tensor.shape
@@ -1065,14 +1070,16 @@ def reshape(tensor, shape, name=None):
         assert(np.prod(shap) == np.prod(shape))
         new_shape = shape
 
-      if isinstance(tensor, ops.Tensor):      # no need to make it an operation if input is Tensor
+      gph = ops.our_Graph.get_default_graph()
+      # print(new_shape, tensor in gph.placeholders, "CHECK")
+      if isinstance(tensor, ops.Tensor) and not tensor in gph.placeholders:      # no need to make it an operation if input is Tensor
         this_tensor = ops.Tensor(new_shape)
         gph = ops.our_Graph.get_default_graph()
         gph.created_tensors.append(this_tensor)
         return this_tensor
       
       def forward(tensor, shape):
-        if isinstance(tensor, ops.Tensor):
+        if isinstance(tensor, ops.Tensor):      # because placeholders will be evaluated at this place
           shap = tensor.shape
         elif isinstance(tensor, ops.our_Operation):
           shap = tensor.fwd_func(*tensor.input_nodes).shape
@@ -1100,7 +1107,6 @@ def reshape(tensor, shape, name=None):
         return ops.Tensor(new_shape)    # No dtype
       
       this_operation = ops.our_Operation([tensor, shape], ffnc=forward, name="reshape")   # create a new operation object each time
-      gph = ops.our_Graph.get_default_graph()
       gph.operations.append(this_operation)
       return this_operation
 
@@ -1230,32 +1236,37 @@ def conv2d(input, filter, strides, padding, use_cudnn_on_gpu=True, data_format="
   Returns:
     A `Tensor`. Has the same type as `input`.
   """
-  # assert(len(input.shape) == 4 and len(filter.shape) == 4), "Input and filter must be 4-D"    # trivial
-  # assert(all(isinstance(i, int) for i in strides)), "Only integer accepted as strides"    # trivial
-  # put assert on padding
-  # output[b, i, j, k] = sum_{di, dj, q} input[b, strides[1] * i + di, strides[2] * j + dj, q] * filter[di, dj, q, k]
-  # assert(padding == "VALID" or padding )
-  
+
   def tell(shap, strides, filter):    # for calculating the shape at position 1 and 2 for non-unit stride
-    import math
     padding_1 = (filter.shape[1] - 1) // 2     # padding along dimension 1 
     padding_2 = (filter.shape[2] - 1) // 2     # padding along dimension 2
     pos_1 = int(math.floor((shap[1] + (2*padding_1) - filter.shape[1]) / strides[1])) + 1
     pos_2 = int(math.floor((shap[2] + (2*padding_2) - filter.shape[2]) / strides[2])) + 1
     return (pos_1, pos_2)
 
-  if isinstance(input, ops.Tensor):
+  gph = ops.our_Graph.get_default_graph()
+
+  if isinstance(input, ops.Tensor) or input in gph.variables:
     shap = input.shape
   elif isinstance(input, ops.our_Operation):
-    shap = input.fwd_func(*input.input_nodes).shape   # always make our_Operation return a tensor or variable
-    assert(shap[1] == shap[2]), "inheight and inwidth must be equal"   
+    # ori = copy.deepcopy(input)    # other wise input was being over-written
+    out = input
+    while(not isinstance(out, ops.Tensor)):
+        out = out.fwd_func(*out.input_nodes)
+    shap = out.shape   # always make our_Operation return a tensor
+    # print(id(ori), id(input))
+    # print(input, "see")
+    # input = ori
+    # assert(shap[1] == shap[2]), "inheight and inwidth must be equal"   
   else:
     print("this is the type of input{}".format(type(input))); raise NotImplementedError
   
   # assert(shap[1] == shap[2]), "inheight and inwidth must be equal"     
-  assert(filter.shape[0] == filter.shape[1]), "filter height and filter weight must be equal"
+  # assert(filter.shape[1] == filter.shape[2]), "filter height and filter width must be equal"
   # assert(all(i == 1 for i in strides)), "currently implementation only works for strides = 1"
   assert(dilations == [1,1,1,1] and data_format == "NHWC"), "this basically means no difference in shape from convoulution without dilation"
+  assert(shap[-1] == filter.shape[2]), "the number if in channels must match"
+  
   if padding == "VALID":
     assert(shap[1] >= filter.shape[0]), "Input shape[1] must be larger than or equal to filter.shape[0]"
     assert(shap[2] >= filter.shape[1]), "Input shape[1] must be larger than or equal to filter.shape[0]"
@@ -1269,24 +1280,27 @@ def conv2d(input, filter, strides, padding, use_cudnn_on_gpu=True, data_format="
     else:
       pos_1, pos_2 = tell(shap, strides, filter)
       output_shape = [shap[0], pos_1, pos_2, filter.shape[3]]
-  
-  if isinstance(input, ops.Tensor):
+
+  if (isinstance(input, ops.Tensor) or input in gph.variables) and (not input in gph.placeholders):
     this_tensor = ops.Tensor(output_shape)
-    gph = ops.our_Graph.get_default_graph()
     gph.created_tensors.append(this_tensor)
     return this_tensor
       
-
-  def forward(input, filer):    # padding assessible without passing as well, and it doesn't change
-    if isinstance(input, ops.Tensor):
+  def forward(input, filter):    # padding assessible without passing as well, and it doesn't change
+    if isinstance(input, ops.Tensor) or input in gph.variables:
       shap = input.shape
     elif isinstance(input, ops.our_Operation):
-      shap = input.fwd_func(*input.input_nodes).shape   # always make our_Operation return a tensor or variable
+      out_ = input
+      while(not isinstance(out_, ops.Tensor)):
+        out_ = out_.fwd_func(*out_.input_nodes)
+      shap = out_.shape
+      # shap = input.fwd_func(*input.input_nodes).shape   # always make our_Operation return a tensor or variable
     else:
       print("this is the type of input{}".format(type(input))); raise NotImplementedError
     
     # assert(shap[1] == shap[2]), "inheight and inwidth must be equal"   
-    assert(filter.shape[0] == filter.shape[1]), "filter height and filter weight must be equal"
+    # assert(filter.shape[1] == filter.shape[2]), "filter height and filter weight must be equal"
+    assert(shap[-1] == filter.shape[2]), "the number if in channels must match"
     if padding == "VALID":
       assert(shap[1] >= filter.shape[0]), "Input shape[1] must be larger than or equal to filter.shape[0]"
       assert(shap[2] >= filter.shape[1]), "Input shape[1] must be larger than or equal to filter.shape[0]"
@@ -1304,7 +1318,6 @@ def conv2d(input, filter, strides, padding, use_cudnn_on_gpu=True, data_format="
     return ops.Tensor(output_shape)    # No dtype
 
   this_operation = ops.our_Operation([input, filter], ffnc=forward, name="conv2d")   # create a new operation object each time
-  gph = ops.our_Graph.get_default_graph()
   gph.operations.append(this_operation)
   return this_operation
   
