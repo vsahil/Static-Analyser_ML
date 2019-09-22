@@ -12,9 +12,9 @@ from sklearn.model_selection import train_test_split
 import numpy as np
 import time, sys
 if sys.argv[1] == "1":
-    boston = learn.datasets.load_dataset('boston_small')    
+    boston = learn.datasets.load_dataset('boston')    
 elif sys.argv[1] == "2":
-    boston = learn.datasets.load_dataset('boston')
+    boston = learn.datasets.load_dataset('boston_small')
 
 start = time.time()
 x, y = boston.data, boston.target

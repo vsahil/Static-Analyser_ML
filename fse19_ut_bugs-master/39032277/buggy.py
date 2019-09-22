@@ -10,7 +10,7 @@ elif sys.argv[1] == "2":
     mnist_file = "/home/saverma/TensorFlow-Program-Bugs-master/dummy_mnist"
 
 start = time.time()
-mnist = input_data.read_data_sets(mnist_file, one_hot=True)
+mnist = input_data.read_data_sets(mnist_file, one_hot=True, validation_size=0)
 
 x = tf.placeholder("float", [None, 784])
 y = tf.placeholder("float", [None, 10])
